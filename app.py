@@ -64,10 +64,56 @@ def is_allowed_npm_command(command: str) -> bool:
     return any(cmd == prefix or cmd.startswith(prefix + " ") for prefix in allowed_prefixes)
 
 
-def run_npm_command(server_path: str, command: str, log_file_path: str):
+def sanitize_package_name(name: str) -> str:
+    """
+    package.json içindeki name alanı için basit bir güvenli isim üretir.
+    """
+    name = (name or "").strip().lower()
+    if not name:
+        return "my-server"
+    safe = []
+    for ch in name:
+        if ch.isalnum() or ch in ['-', '_']:
+            safe.append(ch)
+        elif ch in [' ', '.']:
+            safe.append('-')
+    result = ''.join(safe).strip('-_')
+    return result or "my-server"
+
+
+def ensure_package_json_exists(server_path: str, server_name: str = "my-server") -> str:
+    """
+    package.json yoksa oluşturur ve yolunu döndürür.
+    """
+    package_json_path = os.path.join(server_path, 'package.json')
+
+    if not os.path.exists(package_json_path):
+        default_package_json = {
+            "name": sanitize_package_name(server_name),
+            "version": "1.0.0",
+            "description": "",
+            "main": "index.js",
+            "scripts": {
+                "start": "node index.js"
+            },
+            "keywords": [],
+            "author": "",
+            "license": "ISC",
+            "dependencies": {},
+            "devDependencies": {}
+        }
+
+        with open(package_json_path, 'w', encoding='utf-8') as f:
+            json.dump(default_package_json, f, indent=2, ensure_ascii=False)
+
+    return package_json_path
+
+
+def run_npm_command(server_path: str, command: str, log_file_path: str, server_name: str = "my-server"):
     """
     npm komutlarını ayrı bir process olarak çalıştırır.
     Sadece izinli npm komutları çalıştırılmalıdır.
+    package.json yoksa önce oluşturur.
     """
     args = shlex.split(command)
 
@@ -76,6 +122,9 @@ def run_npm_command(server_path: str, command: str, log_file_path: str):
 
     if args[0] != "npm":
         raise ValueError("Sadece npm komutları destekleniyor.")
+
+    # npm komutları çalışmadan önce package.json yoksa oluştur
+    ensure_package_json_exists(server_path, server_name)
 
     with open(log_file_path, 'a', encoding='utf-8') as log_file:
         log_file.write(f"\n[CMD] {command}\n")
@@ -112,15 +161,16 @@ def stop_active_server(server_id):
         del active_processes[server_id]
 
 
-def auto_install_dependencies_if_needed(server_path: str, log_file):
+def auto_install_dependencies_if_needed(server_path: str, log_file, server_name: str = "my-server"):
     """
     package.json varsa ve node_modules yoksa otomatik npm install çalıştırır.
+    package.json yoksa oluşturur.
     """
-    package_json_path = os.path.join(server_path, 'package.json')
+    package_json_path = ensure_package_json_exists(server_path, server_name)
     node_modules_path = os.path.join(server_path, 'node_modules')
 
     if os.path.exists(package_json_path) and not os.path.exists(node_modules_path):
-        log_file.write("\n[Auto] package.json bulundu. npm install başlatılıyor...\n")
+        log_file.write("\n[Auto] package.json bulundu/oluşturuldu. npm install başlatılıyor...\n")
         log_file.flush()
 
         result = subprocess.run(
@@ -230,6 +280,9 @@ def create_server():
     os.makedirs(server_path, exist_ok=True)
     os.makedirs(os.path.join(server_path, 'data'), exist_ok=True)
 
+    # Yeni sunucu oluşturulurken package.json da hazır olsun
+    ensure_package_json_exists(server_path, server_name)
+
     default_code = (
         f"// {server_name} - Ana Dosya\n"
         f"console.log('Bot başlatılıyor...');\n"
@@ -338,7 +391,7 @@ def send_command(server_id):
     # npm install / npm i gibi komutlar ayrı process olarak çalıştırılır
     if is_allowed_npm_command(cmd):
         try:
-            run_npm_command(server_path, cmd, log_file_path)
+            run_npm_command(server_path, cmd, log_file_path, server_name=server.get('name', 'my-server'))
             return jsonify({'status': 'success', 'message': 'npm komutu başlatıldı.'})
         except Exception as e:
             return jsonify({'error': str(e)}), 500
@@ -385,8 +438,15 @@ def dashboard(server_id):
                     try:
                         log_file = open(log_file_path, 'a', encoding='utf-8')
 
+                        # package.json yoksa oluştur, varsa dokunma
+                        ensure_package_json_exists(server_path, server.get('name', 'my-server'))
+
                         # package.json varsa ve node_modules yoksa otomatik kurulum yap
-                        auto_install_dependencies_if_needed(server_path, log_file)
+                        auto_install_dependencies_if_needed(
+                            server_path,
+                            log_file,
+                            server_name=server.get('name', 'my-server')
+                        )
 
                         process = subprocess.Popen(
                             ['node', main_file],
