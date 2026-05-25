@@ -48,8 +48,32 @@ def save_data(data):
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 
+def normalize_email(email: str) -> str:
+    return (email or "").strip().lower()
+
+
 def get_user_server_count(data, email):
-    return sum(1 for srv in data.get('servers', {}).values() if srv.get('owner') == email)
+    email = normalize_email(email)
+    return sum(1 for srv in data.get('servers', {}).values() if normalize_email(srv.get('owner')) == email)
+
+
+def can_access_server(server: dict, email: str) -> bool:
+    email = normalize_email(email)
+    if not server:
+        return False
+
+    owner = normalize_email(server.get('owner'))
+    collaborators = [normalize_email(x) for x in server.get('collaborators', [])]
+
+    return email == owner or email in collaborators
+
+
+def can_manage_server(server: dict, email: str) -> bool:
+    return can_access_server(server, email)
+
+
+def can_share_server(server: dict, email: str) -> bool:
+    return normalize_email(server.get('owner')) == normalize_email(email)
 
 
 def is_allowed_npm_command(command: str) -> bool:
@@ -184,6 +208,35 @@ def auto_install_dependencies_if_needed(server_path: str, log_file, server_name:
             raise RuntimeError("Otomatik npm install başarısız oldu.")
 
 
+def is_safe_relative_path(rel_path: str) -> bool:
+    """
+    Güvenli dosya/klasör yolu kontrolü.
+    node_modules gizli ve korunmuş kabul edilir.
+    """
+    rel_path = (rel_path or "").strip().replace("\\", "/")
+    if not rel_path:
+        return False
+    if rel_path.startswith("/"):
+        return False
+
+    parts = [p for p in rel_path.split("/") if p not in ("", ".")]
+    if not parts:
+        return False
+    if any(part == ".." for part in parts):
+        return False
+    if "node_modules" in parts:
+        return False
+    return True
+
+
+def ensure_server_defaults(server: dict):
+    if "collaborators" not in server or not isinstance(server.get("collaborators"), list):
+        server["collaborators"] = []
+    if "main_file" not in server:
+        server["main_file"] = "index.js"
+    return server
+
+
 # ==================== KULLANICI ARAYÜZÜ (UI) ROTALARI ====================
 
 @app.route('/')
@@ -195,7 +248,7 @@ def index():
 def register():
     if request.method == 'POST':
         username = request.form.get('username')
-        email = request.form.get('email')
+        email = normalize_email(request.form.get('email'))
         password = request.form.get('password')
 
         data = load_data()
@@ -216,7 +269,7 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form.get('email')
+        email = normalize_email(request.form.get('email'))
         password = request.form.get('password')
 
         data = load_data()
@@ -239,7 +292,15 @@ def dashboard_menu():
         return redirect(url_for('login'))
 
     data = load_data()
-    user_servers = {k: v for k, v in data.get('servers', {}).items() if v.get('owner') == session['email']}
+    current_email = normalize_email(session['email'])
+
+    user_servers = {}
+    for k, v in data.get('servers', {}).items():
+        v = ensure_server_defaults(v)
+        if can_access_server(v, current_email):
+            # Dashboard menüde istersen şablonda kullanabilirsin
+            v["is_owner"] = normalize_email(v.get("owner")) == current_email
+            user_servers[k] = v
 
     for srv_id, srv_data in user_servers.items():
         if srv_data.get('status') == 'Çalışıyor' and srv_id not in active_processes:
@@ -268,11 +329,12 @@ def create_server():
     server_id = str(uuid.uuid4())[:8]
     data['servers'][server_id] = {
         "id": server_id,
-        "owner": session['email'],
+        "owner": normalize_email(session['email']),
         "name": server_name,
         "token": bot_token,
         "status": "Durduruldu",
-        "main_file": "index.js"
+        "main_file": "index.js",
+        "collaborators": []
     }
     save_data(data)
 
@@ -301,9 +363,9 @@ def delete_server(server_id):
         return redirect(url_for('login'))
 
     data = load_data()
-    server = data.get('servers', {}).get(server_id)
+    server = ensure_server_defaults(data.get('servers', {}).get(server_id))
 
-    if not server or server.get('owner') != session['email']:
+    if not server or normalize_email(server.get('owner')) != normalize_email(session['email']):
         flash('Silme işlemi için yetkiniz yok.', 'danger')
         return redirect(url_for('dashboard_menu'))
 
@@ -331,14 +393,18 @@ def read_file(server_id):
         return jsonify({"status": "error", "message": "Oturum açmanız gerekiyor."}), 403
 
     data = load_data()
-    server = data.get('servers', {}).get(server_id)
-    if not server or server.get('owner') != session['email']:
+    server = ensure_server_defaults(data.get('servers', {}).get(server_id))
+    if not server or not can_access_server(server, session['email']):
         return jsonify({"status": "error", "message": "Yetkisiz erişim."}), 403
 
     filename = request.args.get('file', '').strip()
+
+    if not is_safe_relative_path(filename):
+        return jsonify({"status": "error", "message": "Geçersiz dosya yolu."}), 400
+
     safe_path = os.path.join(SERVERS_DIR, server_id, filename)
 
-    if not os.path.exists(safe_path) or os.path.isdir(safe_path) or '..' in filename:
+    if not os.path.exists(safe_path) or os.path.isdir(safe_path):
         return jsonify({"status": "error", "message": "Dosya bulunamadı."}), 404
 
     try:
@@ -355,8 +421,8 @@ def get_logs(server_id):
         return jsonify({'error': 'Unauthorized'}), 403
 
     data = load_data()
-    server = data.get('servers', {}).get(server_id)
-    if not server or server.get('owner') != session['email']:
+    server = ensure_server_defaults(data.get('servers', {}).get(server_id))
+    if not server or not can_access_server(server, session['email']):
         return jsonify({'error': 'Unauthorized'}), 403
 
     log_path = os.path.join(SERVERS_DIR, server_id, 'server_output.log')
@@ -375,8 +441,8 @@ def send_command(server_id):
         return jsonify({'error': 'Unauthorized'}), 403
 
     data = load_data()
-    server = data.get('servers', {}).get(server_id)
-    if not server or server.get('owner') != session['email']:
+    server = ensure_server_defaults(data.get('servers', {}).get(server_id))
+    if not server or not can_access_server(server, session['email']):
         return jsonify({'error': 'Unauthorized'}), 403
 
     payload = request.get_json(silent=True) or {}
@@ -415,13 +481,15 @@ def dashboard(server_id):
         return redirect(url_for('login'))
 
     data = load_data()
-    server = data.get('servers', {}).get(server_id)
+    server = ensure_server_defaults(data.get('servers', {}).get(server_id))
 
-    if not server or server.get('owner') != session['email']:
+    if not server or not can_access_server(server, session['email']):
         return redirect(url_for('dashboard_menu'))
 
     server_path = os.path.join(SERVERS_DIR, server_id)
     os.makedirs(server_path, exist_ok=True)
+
+    is_owner = normalize_email(server.get('owner')) == normalize_email(session['email'])
 
     if request.method == 'POST':
         action = request.form.get('action')
@@ -481,24 +549,28 @@ def dashboard(server_id):
             filename = request.form.get('filename', '').strip()
             file_content = request.form.get('file_content', '')
 
-            if '..' not in filename and filename:
+            if is_safe_relative_path(filename) and filename:
                 safe_path = os.path.join(server_path, filename)
                 os.makedirs(os.path.dirname(safe_path), exist_ok=True)
                 with open(safe_path, 'w', encoding='utf-8') as f:
                     f.write(file_content)
                 flash(f'"{filename}" başarıyla kaydedildi.', 'success')
+            else:
+                flash('Geçersiz dosya yolu.', 'danger')
 
         elif action == 'create_folder':
             foldername = request.form.get('foldername', '').strip()
 
-            if '..' not in foldername and foldername:
+            if is_safe_relative_path(foldername) and foldername:
                 os.makedirs(os.path.join(server_path, foldername), exist_ok=True)
                 flash(f'"{foldername}" klasörü oluşturuldu.', 'success')
+            else:
+                flash('Geçersiz klasör yolu.', 'danger')
 
         elif action == 'delete_file':
             filename = request.form.get('filename', '').strip()
 
-            if '..' not in filename and filename and filename != 'server_output.log':
+            if is_safe_relative_path(filename) and filename and filename != 'server_output.log':
                 safe_path = os.path.join(server_path, filename)
                 if os.path.exists(safe_path):
                     if os.path.isdir(safe_path):
@@ -506,6 +578,8 @@ def dashboard(server_id):
                     else:
                         os.remove(safe_path)
                     flash(f'"{filename}" başarıyla silindi.', 'success')
+            else:
+                flash('Bu dosya silinemez.', 'danger')
 
         elif action == 'update_settings':
             server['name'] = request.form.get('server_name')
@@ -513,23 +587,56 @@ def dashboard(server_id):
             server['main_file'] = request.form.get('main_file')
             flash('Ayarlar güncellendi.', 'info')
 
+        elif action == 'add_collaborator':
+            if not can_share_server(server, session['email']):
+                flash('Bu işlemi sadece sunucu sahibi yapabilir.', 'danger')
+            else:
+                collaborator_email = normalize_email(request.form.get('collaborator_email'))
+
+                if not collaborator_email:
+                    flash('E-posta boş olamaz.', 'danger')
+                elif collaborator_email == normalize_email(server.get('owner')):
+                    flash('Sahibi zaten ekli.', 'warning')
+                else:
+                    user_exists = collaborator_email in data.get('users', {})
+                    if not user_exists:
+                        flash('Bu e-posta kayıtlı değil. Önce o kişi kayıt olmalı.', 'danger')
+                    else:
+                        server.setdefault('collaborators', [])
+                        if collaborator_email not in server['collaborators']:
+                            server['collaborators'].append(collaborator_email)
+                            flash(f'{collaborator_email} sunucuya eklendi.', 'success')
+                        else:
+                            flash('Bu kişi zaten ekli.', 'warning')
+
         data['servers'][server_id] = server
         save_data(data)
         return redirect(url_for('dashboard', server_id=server_id))
 
     files_list = []
     for root, dirs, files in os.walk(server_path):
+        # node_modules görünmesin
+        dirs[:] = [d for d in dirs if d != 'node_modules']
+
         for d in dirs:
             rel_dir = os.path.relpath(os.path.join(root, d), server_path).replace('\\', '/')
-            files_list.append({"name": rel_dir + "/", "is_dir": True})
+            if 'node_modules' not in rel_dir.split('/'):
+                files_list.append({"name": rel_dir + "/", "is_dir": True})
+
         for file in files:
             rel_file = os.path.relpath(os.path.join(root, file), server_path).replace('\\', '/')
-            if rel_file != 'server_output.log':
+            if rel_file != 'server_output.log' and 'node_modules' not in rel_file.split('/'):
                 files_list.append({"name": rel_file, "is_dir": False})
 
     files_list = sorted(files_list, key=lambda x: (not x['is_dir'], x['name']))
 
-    return render_template('dashboard.html', server=server, files=files_list)
+    return render_template(
+        'dashboard.html',
+        server=server,
+        files=files_list,
+        collaborators=server.get('collaborators', []),
+        is_owner=is_owner
+    )
 
 
 @app.route('/logout')
