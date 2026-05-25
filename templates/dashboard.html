@@ -6,6 +6,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* Genel Arka Plan ve Yazı Rengi */
         body { 
             background: radial-gradient(circle at top right, #1a1b26, #0f1015);
             color: #ffffff !important; 
@@ -13,91 +14,236 @@
             min-height: 100vh;
         }
 
-        h4, h5, label, span, p, div, strong { color: #ffffff !important; }
+        /* Tüm başlıklar ve düz yazılar için beyaz renk garantisi */
+        h4, h5, label, span, p, div, strong {
+            color: #ffffff !important;
+        }
 
+        /* Modern Navbar (Glassmorphism) */
         .navbar { 
             background: rgba(17, 18, 20, 0.7) !important; 
             backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             padding: 15px 0;
         }
-        .navbar-brand { color: #a78bfa !important; transition: color 0.2s; }
-        .navbar-brand:hover { color: #c084fc !important; }
+        .navbar-brand {
+            color: #a78bfa !important; /* Soft Mor */
+            transition: color 0.2s;
+        }
+        .navbar-brand:hover {
+            color: #c084fc !important;
+        }
 
-        .status-badge { font-size: 13px; padding: 6px 12px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
-        .status-online { background: rgba(16, 185, 129, 0.15) !important; border: 1px solid #10b981; color: #10b981 !important; }
-        .status-offline { background: rgba(107, 114, 128, 0.15) !important; border: 1px solid #6b7280; color: #9ca3af !important; }
-        .status-dot { width: 8px; height: 8px; background-color: currentColor; border-radius: 50%; display: inline-block; }
-        .status-online .status-dot { animation: pulse 1.5s infinite; }
+        /* Sunucu Durum Rozeti Animasyonu */
+        .status-badge {
+            font-size: 13px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+        }
+        .status-online {
+            background: rgba(16, 185, 129, 0.15) !important;
+            border: 1px solid #10b981;
+            color: #10b981 !important;
+        }
+        .status-offline {
+            background: rgba(107, 114, 128, 0.15) !important;
+            border: 1px solid #6b7280;
+            color: #9ca3af !important;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: currentColor;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-online .status-dot {
+            animation: pulse 1.5s infinite;
+        }
 
-        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+        @keyframes pulse {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
 
+        /* Modern Buzlu Cam Kartlar */
         .card { 
             background: rgba(30, 31, 34, 0.4) !important; 
             backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.05) !important; 
             border-radius: 16px;
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
             transition: transform 0.2s, box-shadow 0.2s;
         }
-        .card:hover { border-color: rgba(167, 139, 250, 0.2) !important; }
+        .card:hover {
+            border-color: rgba(167, 139, 250, 0.2) !important;
+        }
 
+        /* Konsol Kutusu Tasarımı */
         .console-box {
             background-color: #0b0c10 !important;
             font-family: 'Fira Code', Consolas, Monaco, monospace;
-            color: #00ffcc !important;
-            height: 280px; overflow-y: auto; padding: 18px; border-radius: 12px;
-            font-size: 13.5px; white-space: pre-wrap; margin-bottom: 0;
-            border: 1px solid rgba(255, 255, 255, 0.03); box-shadow: inset 0 4px 12px rgba(0,0,0,0.5);
+            color: #00ffcc !important; /* Neon Cyan */
+            height: 280px;
+            overflow-y: auto;
+            padding: 18px;
+            border-radius: 12px;
+            font-size: 13.5px;
+            white-space: pre-wrap;
+            margin-bottom: 0;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            box-shadow: inset 0 4px 12px rgba(0,0,0,0.5);
         }
 
-        .console-input { background-color: #111214 !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; color: #ffffff !important; font-family: 'Fira Code', Consolas, monospace; border-radius: 0 8px 8px 0 !important; padding: 10px 14px; }
-        .console-input:focus { box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.2) !important; border-color: #a78bfa !important; }
-        .input-group-text { background-color: #111214 !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; border-right: none !important; color: #00ffcc !important; border-radius: 8px 0 0 8px !important; }
+        /* Konsol Girdisi */
+        .console-input {
+            background-color: #111214 !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #ffffff !important;
+            font-family: 'Fira Code', Consolas, monospace;
+            border-radius: 0 8px 8px 0 !important;
+            padding: 10px 14px;
+        }
+        .console-input:focus {
+            box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.2) !important;
+            border-color: #a78bfa !important;
+        }
+        .input-group-text {
+            background-color: #111214 !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-right: none !important;
+            color: #00ffcc !important;
+            border-radius: 8px 0 0 8px !important;
+        }
 
-        .form-control, .form-select { background-color: rgba(17, 18, 20, 0.6) !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; color: #ffffff !important; border-radius: 8px; padding: 10px 14px; }
-        .form-control:focus, .form-select:focus { background-color: rgba(17, 18, 20, 0.8) !important; color: #ffffff !important; border-color: #a78bfa !important; box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.2) !important; }
+        /* Form Alanları */
+        .form-control, .form-select {
+            background-color: rgba(17, 18, 20, 0.6) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #ffffff !important;
+            border-radius: 8px;
+            padding: 10px 14px;
+        }
+        .form-control:focus, .form-select:focus {
+            background-color: rgba(17, 18, 20, 0.8) !important;
+            color: #ffffff !important;
+            border-color: #a78bfa !important;
+            box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.2) !important;
+        }
 
-        .file-item { cursor: pointer; transition: all 0.2s; padding: 8px 12px; border-radius: 8px; flex-grow: 1; font-size: 13.5px; text-align: left; border: none; background: transparent; display: flex; align-items: center; gap: 8px; }
-        .file-item.text-warning { color: #f59e0b !important; } 
-        .file-item.text-info { color: #38bdf8 !important; } 
-        .file-item:hover { background-color: rgba(255, 255, 255, 0.08) !important; transform: translateX(4px); }
+        /* Dosya Gezgini & Elemanları */
+        .file-item {
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 8px 12px;
+            border-radius: 8px;
+            flex-grow: 1;
+            font-size: 13.5px;
+            text-align: left;
+            border: none;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .file-item.text-warning { color: #f59e0b !important; } /* Klasör rengi */
+        .file-item.text-info { color: #38bdf8 !important; } /* Dosya rengi */
         
-        .file-editor { font-family: 'Fira Code', Consolas, monospace; height: 380px; background-color: #0b0c10 !important; color: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; border-radius: 12px; padding: 15px; }
+        .file-item:hover {
+            background-color: rgba(255, 255, 255, 0.08) !important;
+            transform: translateX(4px);
+        }
+        
+        .file-editor {
+            font-family: 'Fira Code', Consolas, monospace;
+            height: 380px;
+            background-color: #0b0c10 !important;
+            color: #ffffff !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 12px;
+            padding: 15px;
+        }
 
-        .btn { border-radius: 8px; padding: 10px 16px; font-weight: 600; transition: all 0.2s; border: none; }
+        /* Buton Tasarımları */
+        .btn {
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-weight: 600;
+            transition: all 0.2s;
+            border: none;
+        }
         .btn-primary { background: linear-gradient(135deg, #6366f1, #a855f7); color: white !important; }
         .btn-primary:hover { background: linear-gradient(135deg, #4f46e5, #9333ea); transform: translateY(-1px); }
+        
         .btn-success { background: linear-gradient(135deg, #10b981, #059669); color: white !important; }
         .btn-success:hover { background: linear-gradient(135deg, #059669, #047857); transform: translateY(-1px); }
+        
         .btn-danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: white !important; }
         .btn-danger:hover { background: linear-gradient(135deg, #dc2626, #b91c1c); transform: translateY(-1px); }
+        
         .btn-warning { background: linear-gradient(135deg, #f59e0b, #d97706); color: white !important; }
         .btn-warning:hover { background: linear-gradient(135deg, #d97706, #b45309); transform: translateY(-1px); }
 
-        .delete-btn { padding: 6px 10px; border-radius: 6px; background: rgba(239, 68, 68, 0.1); color: #ef4444 !important; border: 1px solid rgba(239, 68, 68, 0.2); }
-        .delete-btn:hover { background: #ef4444; color: white !important; }
+        .delete-btn { 
+            padding: 6px 10px; 
+            border-radius: 6px; 
+            background: rgba(239, 68, 68, 0.1); 
+            color: #ef4444 !important;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+        .delete-btn:hover {
+            background: #ef4444;
+            color: white !important;
+        }
 
-        .server-list-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; padding: 2px; }
+        .server-list-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            padding: 2px;
+        }
 
-        code { color: #38bdf8 !important; background: rgba(56, 189, 248, 0.1); padding: 2px 6px; border-radius: 4px; }
+        /* Paket Külleri / Chip Tasarımları */
+        .package-chip {
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #ffffff !important;
+            margin: 4px 6px 4px 0;
+            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+        .package-chip:hover {
+            background: #a78bfa !important;
+            border-color: #a78bfa !important;
+            color: #111214 !important;
+        }
+
+        code {
+            color: #38bdf8 !important;
+            background: rgba(56, 189, 248, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
-        
-        .stat-card {
-            background-color: #111214 !important;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            padding: 12px;
-        }
-        .progress { height: 8px; background-color: rgba(255,255,255,0.1); border-radius: 10px; }
-        .progress-bar { transition: width 0.4s ease, background-color 0.4s ease; border-radius: 10px; }
-        .small-muted { color: #9ca3af !important; }
     </style>
 </head>
 <body>
+    <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark mb-4">
         <div class="container">
             <a class="navbar-brand fw-bold" href="/dashboard-menu">
@@ -113,6 +259,7 @@
     </nav>
 
     <div class="container">
+        <!-- Flash Mesajları -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -124,32 +271,13 @@
         {% endwith %}
 
         <div class="row g-4">
+            <!-- SOL KOLON -->
             <div class="col-md-7">
+                <!-- Konsol Kartı -->
                 <div class="card p-4 mb-4">
                     <h4 class="mb-3 d-flex align-items-center gap-2">
-                        <i class="fa-solid fa-server text-purple" style="color: #a78bfa;"></i> Sanal Makine Durumu
+                        <i class="fa-solid fa-terminal text-purple" style="color: #a78bfa;"></i> Sanal Makine Konsolu
                     </h4>
-                    
-                    <div class="d-flex justify-content-between mb-4 gap-3">
-                        <div class="w-50 stat-card">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="small text-secondary fw-bold"><i class="fa-solid fa-microchip text-primary me-2"></i>CPU</span>
-                                <span class="small fw-bold" id="cpuText">0.00%</span>
-                            </div>
-                            <div class="progress">
-                                <div id="cpuBar" class="progress-bar bg-primary" role="progressbar" style="width: 0%;"></div>
-                            </div>
-                        </div>
-                        <div class="w-50 stat-card">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="small text-secondary fw-bold"><i class="fa-solid fa-memory text-success me-2"></i>RAM (Limit: 512MB)</span>
-                                <span class="small fw-bold" id="ramText">0.00 MB</span>
-                            </div>
-                            <div class="progress">
-                                <div id="ramBar" class="progress-bar bg-success" role="progressbar" style="width: 0%;"></div>
-                            </div>
-                        </div>
-                    </div>
 
                     <div class="console-box" id="consoleBox">Loglar yükleniyor...</div>
 
@@ -159,7 +287,7 @@
                             type="text"
                             id="cmdInput"
                             class="form-control console-input"
-                            placeholder="Çalışan bota komut gönderin..."
+                            placeholder="Konsol komutu yazın ve Enter'a basın..."
                             {% if server.status != 'Çalışıyor' %}disabled{% endif %}
                         >
                         <button class="btn btn-primary px-4" id="cmdBtn" {% if server.status != 'Çalışıyor' %}disabled{% endif %}>
@@ -184,6 +312,7 @@
                     </div>
                 </div>
 
+                <!-- Dosya Düzenleyici -->
                 <div class="card p-4">
                     <h5 class="mb-3 d-flex align-items-center gap-2">
                         <i class="fa-regular fa-file-lines text-info" style="color: #38bdf8;"></i> Dosya Düzenleyici
@@ -194,11 +323,23 @@
 
                         <div class="mb-3">
                             <label class="form-label small text-secondary fw-bold">Düzenlenen Dosya Yolu</label>
-                            <input type="text" name="filename" id="editorFilename" class="form-control" placeholder="Örn: index.js veya package.json" required>
+                            <input
+                                type="text"
+                                name="filename"
+                                id="editorFilename"
+                                class="form-control"
+                                placeholder="Örn: index.js veya data/config.json"
+                                required
+                            >
                         </div>
 
                         <div class="mb-3">
-                            <textarea name="file_content" id="editorContent" class="form-control file-editor" placeholder="// Sağdaki gezginden bir dosya seçin veya buraya yeni kodlar yazın..."></textarea>
+                            <textarea
+                                name="file_content"
+                                id="editorContent"
+                                class="form-control file-editor"
+                                placeholder="// Sağdaki gezginden bir dosya seçin veya buraya yeni kodlar yazın..."
+                            ></textarea>
                         </div>
 
                         <button type="submit" class="btn btn-primary w-100 fw-bold py-2.5">
@@ -208,7 +349,9 @@
                 </div>
             </div>
 
+            <!-- SAĞ KOLON -->
             <div class="col-md-5">
+                <!-- Dosya Gezgini -->
                 <div class="card p-4 mb-4">
                     <h4 class="mb-3 d-flex align-items-center gap-2">
                         <i class="fa-regular fa-folder-open text-warning" style="color: #f59e0b;"></i> Dosya Gezgini
@@ -224,21 +367,31 @@
                         </div>
                     </form>
 
-                    <div class="p-2 border rounded-3" style="background-color: #0b0c10; max-height: 420px; overflow-y: auto; border-color: rgba(255,255,255,0.05) !important;">
+                    <div class="p-2 border rounded-3" style="background-color: #0b0c10; max-height: 270px; overflow-y: auto; border-color: rgba(255,255,255,0.05) !important;">
                         {% if files %}
                             {% for f in files %}
                                 <div class="server-list-row">
                                     {% if f.is_dir %}
-                                        <div class="file-item text-warning fw-bold" style="cursor: default;">
+                                        <div class="file-item text-warning fw-bold">
                                             <i class="fa-solid fa-folder"></i> {{ f.name }}
                                         </div>
                                     {% else %}
-                                        <button type="button" class="file-item text-info" data-filename="{{ f.name }}" onclick="openFile(this.dataset.filename)">
+                                        <button
+                                            type="button"
+                                            class="file-item text-info"
+                                            data-filename="{{ f.name }}"
+                                            onclick="openFile(this.dataset.filename)"
+                                        >
                                             <i class="fa-regular fa-file-code"></i> {{ f.name }}
                                         </button>
                                     {% endif %}
 
-                                    <form action="/dashboard/{{ server.id }}" method="POST" class="m-0 ms-2" onsubmit="return confirm('Bu dosyayı/klasörü KESİNLİKLE silmek istediğinize emin misiniz?');">
+                                    <form
+                                        action="/dashboard/{{ server.id }}"
+                                        method="POST"
+                                        class="m-0 ms-2"
+                                        onsubmit="return confirm('Bu dosyayı/klasörü KESİNLİKLE silmek istediğinize emin misiniz? Bu işlem geri alınamaz!');"
+                                    >
                                         <input type="hidden" name="action" value="delete_file">
                                         <input type="hidden" name="filename" value="{{ f.name }}">
                                         <button type="submit" class="btn delete-btn" title="Sil">
@@ -255,6 +408,40 @@
                     </div>
                 </div>
 
+                <!-- Kütüphane Ekleme -->
+                <div class="card p-4 mb-4">
+                    <h4 class="mb-3 d-flex align-items-center gap-2">
+                        <i class="fa-solid fa-box text-success" style="color: #10b981;"></i> Kütüphane Ekleme
+                    </h4>
+
+                    <label class="form-label small text-secondary fw-bold">Paket Adı</label>
+                    <div class="input-group mb-3">
+                        <input
+                            type="text"
+                            id="packageInput"
+                            class="form-control"
+                            placeholder="discord.js / @yt-dlp / express"
+                            autocomplete="off"
+                        >
+                        <button class="btn btn-success px-4" type="button" onclick="installPackageFromInput()">
+                            Yükle
+                        </button>
+                    </div>
+
+                    <div class="mb-2 small text-secondary fw-bold">Hızlı kurulumlar</div>
+                    <div class="d-flex flex-wrap">
+                        <button type="button" class="btn package-chip" onclick="installPackage('discord.js')"><i class="fa-brands fa-discord me-1"></i>discord.js</button>
+                        <button type="button" class="btn package-chip" onclick="installPackage('@yt-dlp')"><i class="fa-solid fa-download me-1"></i>@yt-dlp</button>
+                        <button type="button" class="btn package-chip" onclick="installPackage('express')"><i class="fa-solid fa-server me-1"></i>express</button>
+                        <button type="button" class="btn package-chip" onclick="installPackage('axios')"><i class="fa-solid fa-arrow-right-arrow-left me-1"></i>axios</button>
+                    </div>
+
+                    <div class="mt-3 small text-secondary">
+                        <i class="fa-solid fa-info-circle me-1 text-info"></i> Bu işlem panel üzerinden <code>npm install paketadı</code> olarak çalışır.
+                    </div>
+                </div>
+
+                <!-- Sunucu Ayarları -->
                 <div class="card p-4">
                     <h4 class="mb-3 d-flex align-items-center gap-2">
                         <i class="fa-solid fa-sliders text-primary" style="color: #6366f1;"></i> Sunucu Ayarları
@@ -262,29 +449,46 @@
 
                     <form action="/dashboard/{{ server.id }}" method="POST">
                         <input type="hidden" name="action" value="update_settings">
+
                         <div class="mb-3">
                             <label class="form-label small fw-bold">Sunucu İsmi</label>
                             <input type="text" name="server_name" class="form-control" value="{{ server.name }}" required>
                         </div>
+
                         <div class="mb-3">
                             <label class="form-label small fw-bold">Ana Başlangıç Dosyası</label>
                             <input type="text" name="main_file" class="form-control" value="{{ server.main_file | default('index.js') }}" required>
                         </div>
+
                         <div class="mb-4">
                             <label class="form-label small fw-bold">Discord Bot Token</label>
                             <div class="input-group">
-                                <input type="password" id="botTokenInput" name="bot_token" class="form-control" value="{{ server.token }}" readonly style="border-right: none !important;">
+                                <input
+                                    type="password"
+                                    id="botTokenInput"
+                                    name="bot_token"
+                                    class="form-control"
+                                    value="{{ server.token }}"
+                                    readonly
+                                    style="border-right: none !important;"
+                                >
                                 <button type="button" class="btn btn-outline-info" style="border: 1px solid rgba(255,255,255,0.1); border-left: none; color: #38bdf8 !important;" onclick="copyBotToken()">
                                     <i class="fa-regular fa-copy me-1"></i>Kopyala
                                 </button>
                             </div>
+                            <div class="form-text text-secondary">Token gizlidir, kopyala butonuyla panoya alınır.</div>
                         </div>
+
                         <button type="submit" class="btn btn-primary btn-sm w-100 py-2 fw-bold">Ayarları Güncelle</button>
                     </form>
 
                     <hr class="border-secondary my-4" style="opacity: 0.15;">
 
-                    <form action="/dashboard/{{ server.id }}/delete" method="POST" onsubmit="return confirm('Bu sanal sunucu KESİNLİKLE silinsin mi?');">
+                    <form
+                        action="/dashboard/{{ server.id }}/delete"
+                        method="POST"
+                        onsubmit="return confirm('Bu sanal sunucu KESİNLİKLE silinsin mi? İçindeki tüm dosyalar ve ayarlar geri alınamaz şekilde kaldırılacak.');"
+                    >
                         <button type="submit" class="btn btn-danger w-100 fw-bold py-2">
                             <i class="fa-regular fa-trash-can me-2"></i>SANAL SUNUCUYU SİL
                         </button>
@@ -294,6 +498,7 @@
         </div>
     </div>
 
+    <!-- JavaScript Blokları Değişmedi (İşlevler Korundu) -->
     <script>
         function openFile(filename) {
             fetch(`/dashboard/{{ server.id }}/read-file?file=${encodeURIComponent(filename)}`)
@@ -324,60 +529,16 @@
             fetch('/api/server/{{ server.id }}/logs')
                 .then(r => r.json())
                 .then(data => {
-                    if (data.logs !== undefined && data.logs !== consoleBox.innerText) {
+                    if (data.logs !== consoleBox.innerText) {
                         consoleBox.innerText = data.logs;
                         if (autoScroll) consoleBox.scrollTop = consoleBox.scrollHeight;
                     }
                 })
                 .catch(e => console.error(e));
         }
+
         setInterval(fetchLogs, 1500);
         fetchLogs();
-
-        function setBarStateOffline() {
-            document.getElementById('cpuText').innerText = 'Kapalı';
-            document.getElementById('cpuBar').style.width = '0%';
-            document.getElementById('ramText').innerText = 'Kapalı';
-            document.getElementById('ramBar').style.width = '0%';
-            document.getElementById('cpuBar').className = 'progress-bar bg-secondary';
-            document.getElementById('ramBar').className = 'progress-bar bg-secondary';
-        }
-
-        function fetchStats() {
-            fetch('/api/server/{{ server.id }}/stats')
-                .then(r => r.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        const cpu = Number(data.cpu || 0);
-                        const ram = Number(data.ram || 0);
-
-                        document.getElementById('cpuText').innerText = cpu.toFixed(2) + '%';
-                        document.getElementById('ramText').innerText = ram.toFixed(2) + ' MB';
-
-                        let ramPercent = (ram / 512) * 100;
-                        let cpuPercent = Math.min(cpu, 100);
-
-                        document.getElementById('cpuBar').style.width = cpuPercent + '%';
-                        document.getElementById('ramBar').style.width = Math.min(ramPercent, 100) + '%';
-
-                        if (ramPercent > 85) document.getElementById('ramBar').className = 'progress-bar bg-danger';
-                        else if (ramPercent > 60) document.getElementById('ramBar').className = 'progress-bar bg-warning';
-                        else document.getElementById('ramBar').className = 'progress-bar bg-success';
-
-                        if (cpuPercent > 85) document.getElementById('cpuBar').className = 'progress-bar bg-danger';
-                        else if (cpuPercent > 60) document.getElementById('cpuBar').className = 'progress-bar bg-warning';
-                        else document.getElementById('cpuBar').className = 'progress-bar bg-primary';
-                    } else {
-                        setBarStateOffline();
-                    }
-                })
-                .catch(() => {
-                    setBarStateOffline();
-                });
-        }
-
-        setInterval(fetchStats, 3000);
-        fetchStats();
 
         const cmdInput = document.getElementById('cmdInput');
         const cmdBtn = document.getElementById('cmdBtn');
@@ -397,7 +558,7 @@
                     cmdInput.value = '';
                     fetchLogs();
                 } else {
-                    alert("Komut Gönderilemedi: " + (data.error || data.message || 'Bilinmeyen hata'));
+                    alert("Komut Gönderilemedi: " + data.error);
                 }
             })
             .catch(e => console.error(e));
@@ -410,15 +571,52 @@
             });
         }
 
+        function installPackage(pkg) {
+            const name = (pkg || '').trim();
+            if (!name) return;
+
+            const cmd = `npm install ${name}`;
+            fetch('/api/server/{{ server.id }}/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: cmd })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(`${name} kurulumu başlatıldı.`);
+                    fetchLogs();
+                } else {
+                    alert("Kurulum başlatılamadı: " + data.error);
+                }
+            })
+            .catch(e => console.error(e));
+        }
+
+        function installPackageFromInput() {
+            const input = document.getElementById('packageInput');
+            const pkg = input.value.trim();
+            if (!pkg) return;
+            installPackage(pkg);
+        }
+
         function copyBotToken() {
             const tokenInput = document.getElementById('botTokenInput');
             const token = tokenInput.value || '';
-            if (!token) { alert('Kopyalanacak token yok.'); return; }
-            navigator.clipboard.writeText(token).then(() => alert('Token kopyalandı.')).catch(() => {
-                tokenInput.select();
-                document.execCommand('copy');
-                alert('Token kopyalandı.');
-            });
+
+            if (!token) {
+                alert('Kopyalanacak token yok.');
+                return;
+            }
+
+            navigator.clipboard.writeText(token)
+                .then(() => alert('Token kopyalandı.'))
+                .catch(() => {
+                    tokenInput.select();
+                    tokenInput.setSelectionRange(0, 99999);
+                    document.execCommand('copy');
+                    alert('Token kopyalandı.');
+                });
         }
     </script>
 </body>
