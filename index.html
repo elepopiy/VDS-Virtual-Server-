@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discell | Discord Cloud Hosting</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #9b51e0; /* E.M.N Neon Mor */
+            --neon-cyan: #00f2fe; /* E.M.N Camgöbeği */
+            --bg: #0b0c10; /* Panelle aynı derin siyah/koyu gri */
+            --card-bg: #14161d; /* Panelle uyumlu kart rengi */
+            --text-main: #f2f3f5;
+            --text-muted: #a3a7ae; /* Okunmayan siyah/gri harfleri çözen renk */
+        }
+
+        body { 
+            background-color: var(--bg); 
+            color: var(--text-main); 
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            /* Arka plana çok hafif siberpunk bir parlama efekti */
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(155, 81, 224, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(0, 242, 254, 0.05) 0%, transparent 40%);
+        }
+
+        /* Navbar Yenilendi */
+        .navbar { 
+            background: rgba(20, 22, 29, 0.7) !important; 
+            backdrop-filter: blur(15px); 
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05); 
+            transition: 0.3s;
+        }
+        .navbar-brand {
+            font-size: 1.4rem;
+            letter-spacing: 1px;
+        }
+
+        /* Hero Bölümü */
+        .hero { padding: 160px 0 100px 0; position: relative; }
+        
+        .gradient-text {
+            background: linear-gradient(90deg, var(--neon-cyan), var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+        }
+
+        .text-secondary-custom {
+            color: var(--text-muted) !important;
+        }
+
+        /* Kartlar (Yazıların kaybolduğu kısım tamamen düzeltildi) */
+        .card { 
+            background: var(--card-bg) !important; 
+            border: 1px solid rgba(255, 255, 255, 0.04) !important; 
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        .card:hover { 
+            transform: translateY(-10px); 
+            box-shadow: 0 15px 35px rgba(0, 242, 254, 0.08);
+            border-color: rgba(0, 242, 254, 0.2) !important;
+        }
+
+        /* Ücretsiz Etiketi */
+        .free-badge {
+            background: rgba(0, 242, 254, 0.08);
+            border: 1px solid rgba(0, 242, 254, 0.3);
+            color: var(--neon-cyan);
+            padding: 8px 24px;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 242, 254, 0.3); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 242, 254, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 242, 254, 0); }
+        }
+
+        /* Neon Glow Butonlar */
+        .btn-glow {
+            background: linear-gradient(135deg, #7b2cbf, var(--primary));
+            color: white !important;
+            padding: 14px 35px;
+            border-radius: 12px;
+            font-weight: 600;
+            border: none;
+            transition: all 0.3s ease;
+        }
+        .btn-glow:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(155, 81, 224, 0.4);
+        }
+
+        .btn-outline-custom {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            border-radius: 10px;
+            padding: 8px 20px;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+        .btn-outline-custom:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-primary-custom {
+            background: rgba(0, 242, 254, 0.08);
+            border: 1px solid rgba(0, 242, 254, 0.4);
+            color: var(--neon-cyan);
+            border-radius: 10px;
+            padding: 8px 20px;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+        .btn-primary-custom:hover {
+            background: var(--neon-cyan);
+            color: #000;
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top py-3">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/">DIS<span style="color: var(--neon-cyan);">CELL</span></a>
+            <div>
+                <a href="/login" class="btn btn-outline-custom me-2">Giriş</a>
+                <a href="/register" class="btn btn-primary-custom">Kayıt Ol</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Bölümü -->
+    <div class="hero text-center">
+        <div class="container">
+            <div class="free-badge d-inline-block mb-4">✨ TAMAMEN ÜCRETSİZ</div>
+            <h1 class="display-3 fw-bold mb-4" style="letter-spacing: -1px;">Discord Botlarınızı <br><span class="gradient-text">Bulutta Özgürleştirin</span></h1>
+            <p class="lead text-secondary-custom mb-5 w-75 mx-auto" style="font-size: 1.15rem; line-height: 1.7;">Node.js botlarınız için 7/24 kesintisiz, 512MB RAM destekli, modern panel üzerinden yönetilebilir yeni nesil hosting çözümü.</p>
+            
+            <a href="/register" class="btn btn-glow btn-lg px-5 shadow">Ücretsiz Başla</a>
+
+            <!-- Özellik Kartları -->
+            <div class="row g-4 mt-5 text-start">
+                <div class="col-md-4">
+                    <div class="card h-100 p-4">
+                        <h4 class="text-white mb-3" style="font-weight: 600;">
+                            <span style="color: var(--neon-cyan); margin-right: 8px;">🚀</span> 7/24 Aktif
+                        </h4>
+                        <p class="text-secondary-custom small mb-0" style="line-height: 1.6;">Bilgisayarınız kapalıyken bile botunuzun 7/24 kesintisiz çalışmasını sağlayan profesyonel bulut altyapımızla tanışın.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 p-4">
+                        <h4 class="text-white mb-3" style="font-weight: 600;">
+                            <span style="color: var(--primary); margin-right: 8px;">⚙️</span> 512MB RAM
+                        </h4>
+                        <p class="text-secondary-custom small mb-0" style="line-height: 1.6;">Botlarınızın takılmadan ve bellek sınırına takılmadan stabil çalışması için özel olarak izole edilmiş ram kapasitesi.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 p-4">
+                        <h4 class="text-white mb-3" style="font-weight: 600;">
+                            <span style="color: var(--neon-cyan); margin-right: 8px;">🛠️</span> Kolay Panel
+                        </h4>
+                        <p class="text-secondary-custom small mb-0" style="line-height: 1.6;">Gerçek zamanlı konsol takibi, akıllı dosya yönetimi ve tek tıkla yeniden başlatma seçenekleri tamamen parmaklarınızın ucunda.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
