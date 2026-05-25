@@ -1,0 +1,40 @@
+{
+    "settings": {},
+    "users": {
+        "emirhanhakansevgi2@gmail.com": {
+            "username": "emirhanbabo359",
+            "password": "123456"
+        },
+        "poppy15458258@gmail.com": {
+            "username": "poppy15458258",
+            "password": "poppy123!"
+        },
+        "nahbulursunapt@gmail.com": {
+            "username": "emirhan3131",
+            "password": "123456"
+        },
+        "tangorkem617@gmail.com": {
+            "username": "inaktif",
+            "password": "12345"
+        }
+    },
+    "servers": {
+        "590072d9": {
+            "id": "590072d9",
+            "owner": "tangorkem617@gmail.com",
+            "name": "sanal oyunlar",
+            "token": "",
+            "status": "Durduruldu",
+            "main_file": "index.js"
+        },
+        "5221ef99": {
+            "id": "5221ef99",
+            "owner": "emirhanhakansevgi2@gmail.com",
+            "name": "NEXUSBOT",
+            "token": "",
+            "status": "Durduruldu",
+            "main_file": "index.js"
+        }
+    },
+    "logs": []
+}
