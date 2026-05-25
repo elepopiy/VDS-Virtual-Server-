@@ -6,36 +6,32 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Genel Arka Plan ve Yazı Rengi */
-        body { 
+        body {
             background: radial-gradient(circle at top right, #1a1b26, #0f1015);
-            color: #ffffff !important; 
+            color: #ffffff !important;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             min-height: 100vh;
         }
 
-        /* Tüm başlıklar ve düz yazılar için beyaz renk garantisi */
-        h4, h5, label, span, p, div, strong {
+        h4, h5, label, span, p, div, strong, small {
             color: #ffffff !important;
         }
 
-        /* Modern Navbar (Glassmorphism) */
-        .navbar { 
-            background: rgba(17, 18, 20, 0.7) !important; 
+        .navbar {
+            background: rgba(17, 18, 20, 0.7) !important;
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             padding: 15px 0;
         }
         .navbar-brand {
-            color: #a78bfa !important; /* Soft Mor */
+            color: #a78bfa !important;
             transition: color 0.2s;
         }
         .navbar-brand:hover {
             color: #c084fc !important;
         }
 
-        /* Sunucu Durum Rozeti Animasyonu */
         .status-badge {
             font-size: 13px;
             padding: 6px 12px;
@@ -72,12 +68,11 @@
             100% { opacity: 0.4; }
         }
 
-        /* Modern Buzlu Cam Kartlar */
-        .card { 
-            background: rgba(30, 31, 34, 0.4) !important; 
+        .card {
+            background: rgba(30, 31, 34, 0.4) !important;
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.05) !important; 
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
             border-radius: 16px;
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
             transition: transform 0.2s, box-shadow 0.2s;
@@ -86,11 +81,10 @@
             border-color: rgba(167, 139, 250, 0.2) !important;
         }
 
-        /* Konsol Kutusu Tasarımı */
         .console-box {
             background-color: #0b0c10 !important;
             font-family: 'Fira Code', Consolas, Monaco, monospace;
-            color: #00ffcc !important; /* Neon Cyan */
+            color: #00ffcc !important;
             height: 280px;
             overflow-y: auto;
             padding: 18px;
@@ -102,7 +96,6 @@
             box-shadow: inset 0 4px 12px rgba(0,0,0,0.5);
         }
 
-        /* Konsol Girdisi */
         .console-input {
             background-color: #111214 !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -123,7 +116,6 @@
             border-radius: 8px 0 0 8px !important;
         }
 
-        /* Form Alanları */
         .form-control, .form-select {
             background-color: rgba(17, 18, 20, 0.6) !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -138,7 +130,6 @@
             box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.2) !important;
         }
 
-        /* Dosya Gezgini & Elemanları */
         .file-item {
             cursor: pointer;
             transition: all 0.2s;
@@ -153,14 +144,14 @@
             align-items: center;
             gap: 8px;
         }
-        .file-item.text-warning { color: #f59e0b !important; } /* Klasör rengi */
-        .file-item.text-info { color: #38bdf8 !important; } /* Dosya rengi */
-        
+        .file-item.text-warning { color: #f59e0b !important; }
+        .file-item.text-info { color: #38bdf8 !important; }
+
         .file-item:hover {
             background-color: rgba(255, 255, 255, 0.08) !important;
             transform: translateX(4px);
         }
-        
+
         .file-editor {
             font-family: 'Fira Code', Consolas, monospace;
             height: 380px;
@@ -171,7 +162,6 @@
             padding: 15px;
         }
 
-        /* Buton Tasarımları */
         .btn {
             border-radius: 8px;
             padding: 10px 16px;
@@ -181,20 +171,20 @@
         }
         .btn-primary { background: linear-gradient(135deg, #6366f1, #a855f7); color: white !important; }
         .btn-primary:hover { background: linear-gradient(135deg, #4f46e5, #9333ea); transform: translateY(-1px); }
-        
+
         .btn-success { background: linear-gradient(135deg, #10b981, #059669); color: white !important; }
         .btn-success:hover { background: linear-gradient(135deg, #059669, #047857); transform: translateY(-1px); }
-        
+
         .btn-danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: white !important; }
         .btn-danger:hover { background: linear-gradient(135deg, #dc2626, #b91c1c); transform: translateY(-1px); }
-        
+
         .btn-warning { background: linear-gradient(135deg, #f59e0b, #d97706); color: white !important; }
         .btn-warning:hover { background: linear-gradient(135deg, #d97706, #b45309); transform: translateY(-1px); }
 
-        .delete-btn { 
-            padding: 6px 10px; 
-            border-radius: 6px; 
-            background: rgba(239, 68, 68, 0.1); 
+        .delete-btn {
+            padding: 6px 10px;
+            border-radius: 6px;
+            background: rgba(239, 68, 68, 0.1);
             color: #ef4444 !important;
             border: 1px solid rgba(239, 68, 68, 0.2);
         }
@@ -212,7 +202,6 @@
             padding: 2px;
         }
 
-        /* Paket Külleri / Chip Tasarımları */
         .package-chip {
             background: rgba(255, 255, 255, 0.05) !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -228,6 +217,19 @@
             color: #111214 !important;
         }
 
+        .collaborator-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 999px;
+            padding: 6px 12px;
+            margin: 4px 6px 0 0;
+            font-size: 13px;
+            color: #fff;
+        }
+
         code {
             color: #38bdf8 !important;
             background: rgba(56, 189, 248, 0.1);
@@ -235,7 +237,6 @@
             border-radius: 4px;
         }
 
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
@@ -243,7 +244,6 @@
     </style>
 </head>
 <body>
-    <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark mb-4">
         <div class="container">
             <a class="navbar-brand fw-bold" href="/dashboard-menu">
@@ -259,7 +259,6 @@
     </nav>
 
     <div class="container">
-        <!-- Flash Mesajları -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -271,9 +270,7 @@
         {% endwith %}
 
         <div class="row g-4">
-            <!-- SOL KOLON -->
             <div class="col-md-7">
-                <!-- Konsol Kartı -->
                 <div class="card p-4 mb-4">
                     <h4 class="mb-3 d-flex align-items-center gap-2">
                         <i class="fa-solid fa-terminal text-purple" style="color: #a78bfa;"></i> Sanal Makine Konsolu
@@ -312,7 +309,6 @@
                     </div>
                 </div>
 
-                <!-- Dosya Düzenleyici -->
                 <div class="card p-4">
                     <h5 class="mb-3 d-flex align-items-center gap-2">
                         <i class="fa-regular fa-file-lines text-info" style="color: #38bdf8;"></i> Dosya Düzenleyici
@@ -349,9 +345,7 @@
                 </div>
             </div>
 
-            <!-- SAĞ KOLON -->
             <div class="col-md-5">
-                <!-- Dosya Gezgini -->
                 <div class="card p-4 mb-4">
                     <h4 class="mb-3 d-flex align-items-center gap-2">
                         <i class="fa-regular fa-folder-open text-warning" style="color: #f59e0b;"></i> Dosya Gezgini
@@ -406,9 +400,13 @@
                             </span>
                         {% endif %}
                     </div>
+
+                    <div class="mt-3 small text-secondary">
+                        <i class="fa-solid fa-circle-info me-1 text-info"></i>
+                        <code>node_modules</code> listede görünmez.
+                    </div>
                 </div>
 
-                <!-- Kütüphane Ekleme -->
                 <div class="card p-4 mb-4">
                     <h4 class="mb-3 d-flex align-items-center gap-2">
                         <i class="fa-solid fa-box text-success" style="color: #10b981;"></i> Kütüphane Ekleme
@@ -441,7 +439,51 @@
                     </div>
                 </div>
 
-                <!-- Sunucu Ayarları -->
+                <div class="card p-4 mb-4">
+                    <h4 class="mb-3 d-flex align-items-center gap-2">
+                        <i class="fa-solid fa-users text-info" style="color: #38bdf8;"></i> Ortak Düzenleyiciler
+                    </h4>
+
+                    {% if is_owner %}
+                        <form action="/dashboard/{{ server.id }}" method="POST" class="mb-3">
+                            <input type="hidden" name="action" value="add_collaborator">
+                            <label class="form-label small fw-bold">Kişi Ekle (Gmail / E-posta)</label>
+                            <div class="input-group">
+                                <input
+                                    type="email"
+                                    name="collaborator_email"
+                                    class="form-control"
+                                    placeholder="ornek@gmail.com"
+                                    required
+                                    autocomplete="off"
+                                >
+                                <button type="submit" class="btn btn-info">
+                                    <i class="fa-solid fa-user-plus me-1"></i>Ekle
+                                </button>
+                            </div>
+                            <div class="form-text text-secondary">
+                                Eklenen kişi kendi dashboard'ında bu sunucuyu görecek ve düzenleyebilecek.
+                            </div>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-info bg-opacity-10 border-0 text-white">
+                            Bu sunucuya eklenen ortak düzenleyicileri sadece sahip yönetebilir.
+                        </div>
+                    {% endif %}
+
+                    <div class="d-flex flex-wrap">
+                        {% if collaborators and collaborators|length > 0 %}
+                            {% for c in collaborators %}
+                                <span class="collaborator-chip">
+                                    <i class="fa-regular fa-user"></i> {{ c }}
+                                </span>
+                            {% endfor %}
+                        {% else %}
+                            <span class="text-secondary small">Henüz kimse eklenmedi.</span>
+                        {% endif %}
+                    </div>
+                </div>
+
                 <div class="card p-4">
                     <h4 class="mb-3 d-flex align-items-center gap-2">
                         <i class="fa-solid fa-sliders text-primary" style="color: #6366f1;"></i> Sunucu Ayarları
@@ -484,21 +526,26 @@
 
                     <hr class="border-secondary my-4" style="opacity: 0.15;">
 
-                    <form
-                        action="/dashboard/{{ server.id }}/delete"
-                        method="POST"
-                        onsubmit="return confirm('Bu sanal sunucu KESİNLİKLE silinsin mi? İçindeki tüm dosyalar ve ayarlar geri alınamaz şekilde kaldırılacak.');"
-                    >
-                        <button type="submit" class="btn btn-danger w-100 fw-bold py-2">
-                            <i class="fa-regular fa-trash-can me-2"></i>SANAL SUNUCUYU SİL
-                        </button>
-                    </form>
+                    {% if is_owner %}
+                        <form
+                            action="/dashboard/{{ server.id }}/delete"
+                            method="POST"
+                            onsubmit="return confirm('Bu sanal sunucu KESİNLİKLE silinsin mi? İçindeki tüm dosyalar ve ayarlar geri alınamaz şekilde kaldırılacak.');"
+                        >
+                            <button type="submit" class="btn btn-danger w-100 fw-bold py-2">
+                                <i class="fa-regular fa-trash-can me-2"></i>SANAL SUNUCUYU SİL
+                            </button>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-warning bg-opacity-10 border-0 text-white mb-0">
+                            Silme işlemi sadece sunucu sahibine açıktır.
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- JavaScript Blokları Değişmedi (İşlevler Korundu) -->
     <script>
         function openFile(filename) {
             fetch(`/dashboard/{{ server.id }}/read-file?file=${encodeURIComponent(filename)}`)
