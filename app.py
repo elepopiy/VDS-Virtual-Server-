@@ -9,11 +9,17 @@ import threading
 import time
 import urllib.request
 import urllib.error
+import smtplib
+import secrets
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 from flask import Flask, render_template, jsonify, request, session, flash, redirect, url_for
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # ==================== 1. FLASK UYGULAMASI VE LOG TANIMLARI ====================
 app = Flask(__name__)
-app.secret_key = 'discell_super_secret_safe_key_2026'
+app.secret_key = os.getenv("SECRET_KEY", "discell_super_secret_safe_key_2026")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -28,6 +34,15 @@ active_processes = {}
 
 # Kullanıcı başına maksimum sanal sunucu sayısı
 MAX_SERVERS_PER_USER = 3
+
+# Email doğrulama ayarları
+APP_BASE_URL = os.getenv("APP_BASE_URL", "https://vds-virtual-server.onrender.com").rstrip("/")
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_EMAIL = os.getenv("SMTP_EMAIL", "")
+SMTP_APP_PASSWORD = os.getenv("SMTP_APP_PASSWORD", "")
+EMAIL_VERIFICATION_REQUIRED = True
+VERIFICATION_TOKEN_EXPIRY_SECONDS = 24 * 60 * 60
 
 
 # ==================== 2. VERİTABANI VE YARDIMCI FONKSİYONLAR ====================
@@ -59,6 +74,48 @@ def normalize_email(email: str) -> str:
     return (email or "").strip().lower()
 
 
+def ensure_user_defaults(user: dict):
+    if not isinstance(user, dict):
+        return {}
+    if "verified" not in user:
+        user["verified"] = True  # Eski kullanıcılar için uyumluluk
+    if "verify_token" not in user:
+        user["verify_token"] = ""
+    if "verify_token_created_at" not in user:
+        user["verify_token_created_at"] = 0
+    return user
+
+
+def get_current_user_record(data):
+    email = normalize_email(session.get("email"))
+    if not email:
+        return None
+    user = data.get("users", {}).get(email)
+    if not user:
+        return None
+    return ensure_user_defaults(user)
+
+
+def is_user_verified(user: dict) -> bool:
+    if not user:
+        return False
+    return bool(user.get("verified", True))
+
+
+def verify_password(stored_password: str, provided_password: str) -> bool:
+    if not stored_password:
+        return False
+
+    try:
+        if check_password_hash(stored_password, provided_password):
+            return True
+    except Exception:
+        pass
+
+    # Eski düz metin şifrelerle uyumluluk
+    return stored_password == provided_password
+
+
 def get_user_server_count(data, email):
     email = normalize_email(email)
     return sum(1 for srv in data.get('servers', {}).values() if normalize_email(srv.get('owner')) == email)
@@ -85,7 +142,7 @@ def can_share_server(server: dict, email: str) -> bool:
 
 def is_allowed_npm_command(command: str) -> bool:
     cmd = (command or "").strip()
-    
+
     # GÜVENLİK: Tehlikeli shell komutlarını engelle
     dangerous_chars = [';', '&', '|', '>', '<', '$', '`']
     if any(char in cmd for char in dangerous_chars):
@@ -223,29 +280,98 @@ def is_safe_relative_path(rel_path: str) -> bool:
 
 
 def ensure_server_defaults(server: dict):
+    if not isinstance(server, dict):
+        return {}
+
     if "collaborators" not in server or not isinstance(server.get("collaborators"), list):
         server["collaborators"] = []
     if "main_file" not in server:
         server["main_file"] = "index.js"
+    if "ram" not in server:
+        server["ram"] = "1 GB"
+    if "cpu" not in server:
+        server["cpu"] = "1 vCPU"
     return server
+
+
+def generate_verification_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def find_user_by_verification_token(data, token: str):
+    token = (token or "").strip()
+    if not token:
+        return None, None
+
+    for email, user in data.get("users", {}).items():
+        user = ensure_user_defaults(user)
+        if user.get("verify_token") == token:
+            return email, user
+    return None, None
+
+
+def send_verification_email(to_email: str, username: str, token: str):
+    if not SMTP_EMAIL or not SMTP_APP_PASSWORD:
+        raise RuntimeError("SMTP_EMAIL ve SMTP_APP_PASSWORD ayarlanmamış.")
+
+    verify_link = f"{APP_BASE_URL}/verify-email/{token}"
+
+    subject = "Discell hesabını doğrula"
+    plain_text = (
+        f"Merhaba {username},\n\n"
+        f"Discell hesabını doğrulamak için şu bağlantıya tıkla:\n"
+        f"{verify_link}\n\n"
+        f"Bu bağlantı 24 saat geçerlidir.\n"
+    )
+
+    html_text = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; background:#0b0c10; color:#f2f3f5; padding:20px;">
+        <div style="max-width:600px; margin:0 auto; background:#14161d; border-radius:16px; padding:24px; border:1px solid rgba(255,255,255,0.08);">
+          <h2 style="margin-top:0; color:#00f2fe;">Discell Hesap Doğrulama</h2>
+          <p>Merhaba <strong>{username}</strong>,</p>
+          <p>Hesabını doğrulamak için aşağıdaki butona tıkla.</p>
+          <p style="margin:28px 0;">
+            <a href="{verify_link}" style="background:linear-gradient(135deg,#7b2cbf,#9b51e0); color:#fff; text-decoration:none; padding:12px 18px; border-radius:10px; display:inline-block;">
+              Hesabımı Doğrula
+            </a>
+          </p>
+          <p>Bağlantı çalışmazsa bunu tarayıcıya yapıştır:</p>
+          <p style="word-break:break-all; color:#00f2fe;">{verify_link}</p>
+          <p style="color:#a3a7ae; font-size:13px;">Bu bağlantı 24 saat geçerlidir.</p>
+        </div>
+      </body>
+    </html>
+    """
+
+    msg = MIMEMultipart("alternative")
+    msg["From"] = SMTP_EMAIL
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(plain_text, "plain", "utf-8"))
+    msg.attach(MIMEText(html_text, "html", "utf-8"))
+
+    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as smtp:
+        smtp.starttls()
+        smtp.login(SMTP_EMAIL, SMTP_APP_PASSWORD)
+        smtp.sendmail(SMTP_EMAIL, [to_email], msg.as_string())
 
 
 # ==================== 3. OTOMATİK KURTARMA VE CANLI TUTMA MEKANİZMASI ====================
 
 def keep_alive_daemon():
     """Her 5 saniyede bir kendi URL'sine istek atar. Print komutu Render loglarına anında düşer."""
-    url = "https://vds-virtual-server.onrender.com/"
+    url = APP_BASE_URL + "/"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) KeepAlive/1.0'}
-    
+
     # Gunicorn sunucunun tam ayağa kalkması için 3 saniye bekle
     time.sleep(3)
-    
+
     while True:
         try:
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req) as response:
                 if response.status == 200:
-                    # Gunicorn / Render console ekranında direkt görebilmen için print kullandık
                     print(f"[CANLI-TUTMA] {time.strftime('%Y-%m-%d %H:%M:%S')} - Sunucu başarıyla tetiklendi (200 OK)", flush=True)
         except Exception as e:
             print(f"[CANLI-TUTMA] Ping hatası oluştu: {e}", flush=True)
@@ -286,7 +412,7 @@ def resume_all_running_servers():
                     logging.error(f"[AUTO-RESUME] {server_id} başlatılamadı: {e}")
 
 
-# Modül seviyesinde thread başlatma (Böylece Gunicorn dosyayı import ettiği an arka planda çalışır)
+# Modül seviyesinde thread başlatma
 threading.Thread(target=keep_alive_daemon, daemon=True).start()
 
 
@@ -300,9 +426,13 @@ def index():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form.get('username')
+        username = (request.form.get('username') or "").strip()
         email = normalize_email(request.form.get('email'))
-        password = request.form.get('password')
+        password = request.form.get('password') or ""
+
+        if not username or not email or not password:
+            flash('Tüm alanları doldurmalısın.', 'danger')
+            return redirect(url_for('register'))
 
         data = load_data()
 
@@ -310,31 +440,88 @@ def register():
             flash('Bu e-posta adresi zaten kayıtlı!', 'danger')
             return redirect(url_for('register'))
 
-        data['users'][email] = {"username": username, "password": password}
-        save_data(data)
+        verify_token = generate_verification_token()
 
-        flash('Hesabınız başarıyla oluşturuldu! Şimdi giriş yapabilirsiniz.', 'success')
+        data['users'][email] = {
+            "username": username,
+            "password": generate_password_hash(password),
+            "verified": False,
+            "verify_token": verify_token,
+            "verify_token_created_at": time.time()
+        }
+
+        try:
+            save_data(data)
+            send_verification_email(email, username, verify_token)
+        except Exception as e:
+            # Kayıt maili gönderilemediyse kullanıcıyı yarım bırakma
+            data = load_data()
+            if email in data.get('users', {}):
+                del data['users'][email]
+                save_data(data)
+            flash(f'Doğrulama maili gönderilemedi: {str(e)}', 'danger')
+            return redirect(url_for('register'))
+
+        flash('Hesabın oluşturuldu! Gmail adresine gelen doğrulama linkine tıklayarak hesabını aktif et.', 'success')
         return redirect(url_for('login'))
 
     return render_template('register.html')
+
+
+@app.route('/verify-email/<token>')
+def verify_email(token):
+    data = load_data()
+    email, user = find_user_by_verification_token(data, token)
+
+    if not user:
+        flash('Doğrulama bağlantısı geçersiz.', 'danger')
+        return redirect(url_for('login'))
+
+    created_at = float(user.get("verify_token_created_at", 0) or 0)
+    if created_at and (time.time() - created_at) > VERIFICATION_TOKEN_EXPIRY_SECONDS:
+        flash('Doğrulama bağlantısının süresi dolmuş.', 'warning')
+        return redirect(url_for('login'))
+
+    user["verified"] = True
+    user["verify_token"] = ""
+    user["verify_token_created_at"] = 0
+    data["users"][email] = user
+    save_data(data)
+
+    flash('Hesabın doğrulandı. Şimdi giriş yapabilirsin.', 'success')
+    return redirect(url_for('login'))
 
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         email = normalize_email(request.form.get('email'))
-        password = request.form.get('password')
+        password = request.form.get('password') or ""
 
         data = load_data()
 
-        if email in data['users'] and data['users'][email]['password'] == password:
-            session['email'] = email
-            session['username'] = data['users'][email]['username']
-            flash('Başarıyla giriş yapıldı.', 'success')
-            return redirect(url_for('dashboard_menu'))
-        else:
-            flash('Hatalı e-posta veya şifre girdiniz!', 'danger')
-            return redirect(url_for('login'))
+        if email in data['users']:
+            user = ensure_user_defaults(data['users'][email])
+            stored_password = user.get('password', '')
+
+            if verify_password(stored_password, password):
+                # Eski düz metin kayıtları otomatik hash'le
+                if stored_password == password:
+                    user["password"] = generate_password_hash(password)
+                    data["users"][email] = user
+                    save_data(data)
+
+                if EMAIL_VERIFICATION_REQUIRED and not user.get("verified", True):
+                    flash('Hesabın doğrulanmamış. Gmail kutunu kontrol et.', 'warning')
+                    return redirect(url_for('login'))
+
+                session['email'] = email
+                session['username'] = user.get('username', '')
+                flash('Başarıyla giriş yapıldı.', 'success')
+                return redirect(url_for('dashboard_menu'))
+
+        flash('Hatalı e-posta veya şifre girdiniz!', 'danger')
+        return redirect(url_for('login'))
 
     return render_template('login.html')
 
@@ -345,6 +532,11 @@ def dashboard_menu():
         return redirect(url_for('login'))
 
     data = load_data()
+    current_user = get_current_user_record(data)
+    if EMAIL_VERIFICATION_REQUIRED and not is_user_verified(current_user):
+        flash('Paneli kullanmak için hesabını önce doğrulamalısın.', 'warning')
+        return redirect(url_for('login'))
+
     current_email = normalize_email(session['email'])
 
     user_servers = {}
@@ -368,10 +560,18 @@ def create_server():
     if 'username' not in session:
         return redirect(url_for('login'))
 
-    server_name = request.form.get('server_name')
+    data = load_data()
+    current_user = get_current_user_record(data)
+    if EMAIL_VERIFICATION_REQUIRED and not is_user_verified(current_user):
+        flash('Sunucu oluşturmak için hesabını önce doğrulamalısın.', 'warning')
+        return redirect(url_for('login'))
+
+    server_name = (request.form.get('server_name') or "").strip()[:16]
     bot_token = request.form.get('bot_token', '')
 
-    data = load_data()
+    if not server_name:
+        flash('Sunucu adı boş olamaz.', 'danger')
+        return redirect(url_for('dashboard_menu'))
 
     current_count = get_user_server_count(data, session['email'])
     if current_count >= MAX_SERVERS_PER_USER:
@@ -386,7 +586,9 @@ def create_server():
         "token": bot_token,
         "status": "Durduruldu",
         "main_file": "index.js",
-        "collaborators": []
+        "collaborators": [],
+        "ram": "1 GB",
+        "cpu": "1 vCPU"
     }
     save_data(data)
 
@@ -399,7 +601,7 @@ def create_server():
     default_code = (
         f"// {server_name} - Ana Dosya\n"
         f"console.log('Bot başlatılıyor...');\n"
-        f"setInterval(() => {{ console.log('Bot aktif...'); }}, 60000);\n" 
+        f"setInterval(() => {{ console.log('Bot aktif...'); }}, 60000);\n"
     )
 
     with open(os.path.join(server_path, 'index.js'), 'w', encoding='utf-8') as f:
@@ -415,6 +617,11 @@ def delete_server(server_id):
         return redirect(url_for('login'))
 
     data = load_data()
+    current_user = get_current_user_record(data)
+    if EMAIL_VERIFICATION_REQUIRED and not is_user_verified(current_user):
+        flash('Bu işlemi yapmak için hesabını doğrulamalısın.', 'warning')
+        return redirect(url_for('login'))
+
     server = ensure_server_defaults(data.get('servers', {}).get(server_id))
 
     if not server or normalize_email(server.get('owner')) != normalize_email(session['email']):
@@ -441,6 +648,10 @@ def read_file(server_id):
         return jsonify({"status": "error", "message": "Oturum açmanız gerekiyor."}), 403
 
     data = load_data()
+    current_user = get_current_user_record(data)
+    if EMAIL_VERIFICATION_REQUIRED and not is_user_verified(current_user):
+        return jsonify({"status": "error", "message": "Hesabınızı doğrulamanız gerekiyor."}), 403
+
     server = ensure_server_defaults(data.get('servers', {}).get(server_id))
     if not server or not can_access_server(server, session['email']):
         return jsonify({"status": "error", "message": "Yetkisiz erişim."}), 403
@@ -468,6 +679,10 @@ def get_logs(server_id):
         return jsonify({'error': 'Unauthorized'}), 403
 
     data = load_data()
+    current_user = get_current_user_record(data)
+    if EMAIL_VERIFICATION_REQUIRED and not is_user_verified(current_user):
+        return jsonify({'error': 'Unauthorized'}), 403
+
     server = ensure_server_defaults(data.get('servers', {}).get(server_id))
     if not server or not can_access_server(server, session['email']):
         return jsonify({'error': 'Unauthorized'}), 403
@@ -487,6 +702,10 @@ def send_command(server_id):
         return jsonify({'error': 'Unauthorized'}), 403
 
     data = load_data()
+    current_user = get_current_user_record(data)
+    if EMAIL_VERIFICATION_REQUIRED and not is_user_verified(current_user):
+        return jsonify({'error': 'Unauthorized'}), 403
+
     server = ensure_server_defaults(data.get('servers', {}).get(server_id))
     if not server or not can_access_server(server, session['email']):
         return jsonify({'error': 'Unauthorized'}), 403
@@ -525,6 +744,11 @@ def dashboard(server_id):
         return redirect(url_for('login'))
 
     data = load_data()
+    current_user = get_current_user_record(data)
+    if EMAIL_VERIFICATION_REQUIRED and not is_user_verified(current_user):
+        flash('Bu sayfayı kullanmak için hesabını doğrulamalısın.', 'warning')
+        return redirect(url_for('login'))
+
     server = ensure_server_defaults(data.get('servers', {}).get(server_id))
 
     if not server or not can_access_server(server, session['email']):
@@ -622,10 +846,17 @@ def dashboard(server_id):
                 flash('Bu dosya silinemez.', 'danger')
 
         elif action == 'update_settings':
-            server['name'] = request.form.get('server_name')
-            server['token'] = request.form.get('bot_token')
-            server['main_file'] = request.form.get('main_file')
-            flash('Ayarlar güncellendi.', 'info')
+            new_name = (request.form.get('server_name') or server.get('name', '')).strip()[:16]
+            new_bot_token = request.form.get('bot_token', '')
+            new_main_file = (request.form.get('main_file') or server.get('main_file', 'index.js')).strip()
+
+            if not is_safe_relative_path(new_main_file):
+                flash('Geçersiz ana dosya yolu.', 'danger')
+            else:
+                server['name'] = new_name
+                server['token'] = new_bot_token
+                server['main_file'] = new_main_file
+                flash('Ayarlar güncellendi.', 'info')
 
         elif action == 'add_collaborator':
             if not can_share_server(server, session['email']):
