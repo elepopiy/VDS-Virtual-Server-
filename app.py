@@ -32,16 +32,20 @@ MAX_SERVERS_PER_USER = 3
 # ==================== YENİ: OTOMATİK KURTARMA VE CANLI TUTMA ====================
 
 def keep_alive():
-    """10 dakikada bir kendi URL'sine istek atarak Render'ın uyutmasını engeller.
-       (Dahili urllib kullanılmıştır, requirements.txt gerektirmez)"""
+    """Her 5 saniyede bir kendi URL'sine istek atarak Render'ın uyutmasını engeller."""
+    url = "https://vds-virtual-server.onrender.com/"
+    # Render'ın isteği engellememesi için tarayıcı kimliği ekliyoruz
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+    
     while True:
         try:
-            # Senin Render URL'in
-            urllib.request.urlopen("https://vds-virtual-server.onrender.com/") 
-            logging.info("[KEEP-ALIVE] Sunucu kendini pingledi, uyku engellendi.")
+            req = urllib.request.Request(url, headers=headers)
+            urllib.request.urlopen(req)
+            # Log kirliliği yaratmamak için başarılı pingleri ekrana yazdırmıyoruz
+            # Sadece arka planda 5 saniyede bir vurmaya devam edecek.
         except Exception as e:
             logging.error(f"[KEEP-ALIVE] Ping hatası: {e}")
-        time.sleep(600)  # 600 saniye = 10 dakika
+        time.sleep(5)  # 5 saniye bekle ve tekrar et
 
 def resume_all_running_servers():
     """Render reset attığında, durumu 'Çalışıyor' olan botları otomatik tekrar başlatır."""
@@ -683,7 +687,7 @@ if __name__ == '__main__':
     # 2. Render yeniden başladıysa, açık kalması gereken botları geri getir
     resume_all_running_servers()
     
-    # 3. Sunucuyu uyutmamak için arka planda Ping atıcıyı başlat (urllib ile)
+    # 3. Sunucuyu uyutmamak için arka planda Ping atıcıyı başlat (urllib ile, 5 saniyede bir)
     threading.Thread(target=keep_alive, daemon=True).start()
     
     # 4. Web sunucusunu başlat
