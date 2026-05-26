@@ -8,7 +8,6 @@ import shlex
 import threading
 import time
 import urllib.request
-import urllib.error
 import smtplib
 import secrets
 from email.mime.multipart import MIMEMultipart
@@ -39,8 +38,23 @@ MAX_SERVERS_PER_USER = 3
 APP_BASE_URL = os.getenv("APP_BASE_URL", "https://vds-virtual-server.onrender.com").rstrip("/")
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_EMAIL = os.getenv("SMTP_EMAIL", "")
-SMTP_APP_PASSWORD = os.getenv("SMTP_APP_PASSWORD", "")
+
+# Birkaç farklı env adı destekleniyor
+SMTP_EMAIL = (
+    os.getenv("SMTP_EMAIL")
+    or os.getenv("GMAIL_EMAIL")
+    or os.getenv("EMAIL_ADDRESS")
+    or ""
+).strip()
+
+SMTP_APP_PASSWORD = (
+    os.getenv("SMTP_APP_PASSWORD")
+    or os.getenv("GMAIL_APP_PASSWORD")
+    or os.getenv("GMAIL_PASSWORD")
+    or os.getenv("EMAIL_APP_PASSWORD")
+    or ""
+).strip()
+
 EMAIL_VERIFICATION_REQUIRED = True
 VERIFICATION_TOKEN_EXPIRY_SECONDS = 24 * 60 * 60
 
@@ -143,7 +157,6 @@ def can_share_server(server: dict, email: str) -> bool:
 def is_allowed_npm_command(command: str) -> bool:
     cmd = (command or "").strip()
 
-    # GÜVENLİK: Tehlikeli shell komutlarını engelle
     dangerous_chars = [';', '&', '|', '>', '<', '$', '`']
     if any(char in cmd for char in dangerous_chars):
         return False
@@ -310,9 +323,15 @@ def find_user_by_verification_token(data, token: str):
     return None, None
 
 
+def mail_config_ready() -> bool:
+    return bool(SMTP_EMAIL and SMTP_APP_PASSWORD)
+
+
 def send_verification_email(to_email: str, username: str, token: str):
-    if not SMTP_EMAIL or not SMTP_APP_PASSWORD:
-        raise RuntimeError("SMTP_EMAIL ve SMTP_APP_PASSWORD ayarlanmamış.")
+    if not mail_config_ready():
+        raise RuntimeError(
+            "Mail ayarları eksik. SMTP_EMAIL/SMTP_APP_PASSWORD veya GMAIL_EMAIL/GMAIL_APP_PASSWORD tanımlanmalı."
+        )
 
     verify_link = f"{APP_BASE_URL}/verify-email/{token}"
 
@@ -360,11 +379,10 @@ def send_verification_email(to_email: str, username: str, token: str):
 # ==================== 3. OTOMATİK KURTARMA VE CANLI TUTMA MEKANİZMASI ====================
 
 def keep_alive_daemon():
-    """Her 5 saniyede bir kendi URL'sine istek atar. Print komutu Render loglarına anında düşer."""
+    """Her 5 saniyede bir kendi URL'sine istek atar."""
     url = APP_BASE_URL + "/"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) KeepAlive/1.0'}
 
-    # Gunicorn sunucunun tam ayağa kalkması için 3 saniye bekle
     time.sleep(3)
 
     while True:
@@ -412,7 +430,6 @@ def resume_all_running_servers():
                     logging.error(f"[AUTO-RESUME] {server_id} başlatılamadı: {e}")
 
 
-# Modül seviyesinde thread başlatma
 threading.Thread(target=keep_alive_daemon, daemon=True).start()
 
 
@@ -449,20 +466,24 @@ def register():
             "verify_token": verify_token,
             "verify_token_created_at": time.time()
         }
+        save_data(data)
 
         try:
-            save_data(data)
-            send_verification_email(email, username, verify_token)
+            if mail_config_ready():
+                send_verification_email(email, username, verify_token)
+                flash('Hesabın oluşturuldu! Gmail adresine doğrulama bağlantısı gönderildi.', 'success')
+            else:
+                flash(
+                    'Hesabın oluşturuldu, fakat mail ayarları eksik olduğu için doğrulama maili gönderilemedi. '
+                    'SMTP_EMAIL ve SMTP_APP_PASSWORD veya GMAIL_EMAIL ve GMAIL_APP_PASSWORD ayarla.',
+                    'warning'
+                )
         except Exception as e:
-            # Kayıt maili gönderilemediyse kullanıcıyı yarım bırakma
-            data = load_data()
-            if email in data.get('users', {}):
-                del data['users'][email]
-                save_data(data)
-            flash(f'Doğrulama maili gönderilemedi: {str(e)}', 'danger')
-            return redirect(url_for('register'))
+            flash(
+                f'Hesabın oluşturuldu ama doğrulama maili gönderilemedi: {str(e)}',
+                'danger'
+            )
 
-        flash('Hesabın oluşturuldu! Gmail adresine gelen doğrulama linkine tıklayarak hesabını aktif et.', 'success')
         return redirect(url_for('login'))
 
     return render_template('register.html')
@@ -505,7 +526,6 @@ def login():
             stored_password = user.get('password', '')
 
             if verify_password(stored_password, password):
-                # Eski düz metin kayıtları otomatik hash'le
                 if stored_password == password:
                     user["password"] = generate_password_hash(password)
                     data["users"][email] = user
