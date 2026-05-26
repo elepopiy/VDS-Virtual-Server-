@@ -7,7 +7,8 @@ import shutil
 import shlex
 import threading
 import time
-import requests
+import urllib.request
+import urllib.error
 from flask import Flask, render_template, jsonify, request, session, flash, redirect, url_for
 
 app = Flask(__name__)
@@ -31,11 +32,12 @@ MAX_SERVERS_PER_USER = 3
 # ==================== YENİ: OTOMATİK KURTARMA VE CANLI TUTMA ====================
 
 def keep_alive():
-    """10 dakikada bir kendi URL'sine istek atarak Render'ın uyutmasını engeller."""
+    """10 dakikada bir kendi URL'sine istek atarak Render'ın uyutmasını engeller.
+       (Dahili urllib kullanılmıştır, requirements.txt gerektirmez)"""
     while True:
         try:
             # Senin Render URL'in
-            requests.get("https://vds-virtual-server.onrender.com/") 
+            urllib.request.urlopen("https://vds-virtual-server.onrender.com/") 
             logging.info("[KEEP-ALIVE] Sunucu kendini pingledi, uyku engellendi.")
         except Exception as e:
             logging.error(f"[KEEP-ALIVE] Ping hatası: {e}")
@@ -384,7 +386,7 @@ def create_server():
     default_code = (
         f"// {server_name} - Ana Dosya\n"
         f"console.log('Bot başlatılıyor...');\n"
-        f"setInterval(() => {{ console.log('Bot aktif...'); }}, 60000);\n" # Botun kapandığını test etmek için
+        f"setInterval(() => {{ console.log('Bot aktif...'); }}, 60000);\n" 
     )
 
     with open(os.path.join(server_path, 'index.js'), 'w', encoding='utf-8') as f:
@@ -681,7 +683,7 @@ if __name__ == '__main__':
     # 2. Render yeniden başladıysa, açık kalması gereken botları geri getir
     resume_all_running_servers()
     
-    # 3. Sunucuyu uyutmamak için arka planda Ping atıcıyı başlat
+    # 3. Sunucuyu uyutmamak için arka planda Ping atıcıyı başlat (urllib ile)
     threading.Thread(target=keep_alive, daemon=True).start()
     
     # 4. Web sunucusunu başlat
