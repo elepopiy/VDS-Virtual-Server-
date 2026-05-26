@@ -5,6 +5,9 @@ import uuid
 import subprocess
 import shutil
 import shlex
+import threading
+import time
+import requests
 from flask import Flask, render_template, jsonify, request, session, flash, redirect, url_for
 
 app = Flask(__name__)
@@ -24,6 +27,54 @@ active_processes = {}
 # Kullanıcı başına maksimum sanal sunucu sayısı
 MAX_SERVERS_PER_USER = 3
 
+
+# ==================== YENİ: OTOMATİK KURTARMA VE CANLI TUTMA ====================
+
+def keep_alive():
+    """10 dakikada bir kendi URL'sine istek atarak Render'ın uyutmasını engeller."""
+    while True:
+        try:
+            # Senin Render URL'in
+            requests.get("https://vds-virtual-server.onrender.com/") 
+            logging.info("[KEEP-ALIVE] Sunucu kendini pingledi, uyku engellendi.")
+        except Exception as e:
+            logging.error(f"[KEEP-ALIVE] Ping hatası: {e}")
+        time.sleep(600)  # 600 saniye = 10 dakika
+
+def resume_all_running_servers():
+    """Render reset attığında, durumu 'Çalışıyor' olan botları otomatik tekrar başlatır."""
+    logging.info("[AUTO-RESUME] Çalışması gereken botlar kontrol ediliyor...")
+    data = load_data()
+    for server_id, server_data in data.get('servers', {}).items():
+        if server_data.get('status') == 'Çalışıyor':
+            server_path = os.path.join(SERVERS_DIR, server_id)
+            main_file = server_data.get('main_file', 'index.js')
+            target_file = os.path.join(server_path, main_file)
+            log_file_path = os.path.join(server_path, 'server_output.log')
+
+            if os.path.exists(target_file) and server_id not in active_processes:
+                try:
+                    log_file = open(log_file_path, 'a', encoding='utf-8')
+                    log_file.write("\n[SİSTEM] Sunucu yeniden başladı, bot otomatik kurtarıldı.\n")
+                    log_file.flush()
+
+                    process = subprocess.Popen(
+                        ['node', main_file],
+                        cwd=server_path,
+                        stdin=subprocess.PIPE,
+                        stdout=log_file,
+                        stderr=subprocess.STDOUT
+                    )
+
+                    active_processes[server_id] = {
+                        "process": process,
+                        "log_file": log_file
+                    }
+                    logging.info(f"[AUTO-RESUME] {server_data.get('name')} ({server_id}) başarıyla kurtarıldı.")
+                except Exception as e:
+                    logging.error(f"[AUTO-RESUME] {server_id} başlatılamadı: {e}")
+
+# ==================== VERİTABANI VE YARDIMCI FONKSİYONLAR ====================
 
 def init_db():
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -78,6 +129,12 @@ def can_share_server(server: dict, email: str) -> bool:
 
 def is_allowed_npm_command(command: str) -> bool:
     cmd = (command or "").strip()
+    
+    # GÜVENLİK: Tehlikeli shell komutlarını (pipe, zincirleme vs.) engelle
+    dangerous_chars = [';', '&', '|', '>', '<', '$', '`']
+    if any(char in cmd for char in dangerous_chars):
+        return False
+
     allowed_prefixes = (
         "npm install",
         "npm i",
@@ -89,9 +146,6 @@ def is_allowed_npm_command(command: str) -> bool:
 
 
 def sanitize_package_name(name: str) -> str:
-    """
-    package.json içindeki name alanı için basit bir güvenli isim üretir.
-    """
     name = (name or "").strip().lower()
     if not name:
         return "my-server"
@@ -106,9 +160,6 @@ def sanitize_package_name(name: str) -> str:
 
 
 def ensure_package_json_exists(server_path: str, server_name: str = "my-server") -> str:
-    """
-    package.json yoksa oluşturur ve yolunu döndürür.
-    """
     package_json_path = os.path.join(server_path, 'package.json')
 
     if not os.path.exists(package_json_path):
@@ -134,11 +185,6 @@ def ensure_package_json_exists(server_path: str, server_name: str = "my-server")
 
 
 def run_npm_command(server_path: str, command: str, log_file_path: str, server_name: str = "my-server"):
-    """
-    npm komutlarını ayrı bir process olarak çalıştırır.
-    Sadece izinli npm komutları çalıştırılmalıdır.
-    package.json yoksa önce oluşturur.
-    """
     args = shlex.split(command)
 
     if not args:
@@ -147,7 +193,6 @@ def run_npm_command(server_path: str, command: str, log_file_path: str, server_n
     if args[0] != "npm":
         raise ValueError("Sadece npm komutları destekleniyor.")
 
-    # npm komutları çalışmadan önce package.json yoksa oluştur
     ensure_package_json_exists(server_path, server_name)
 
     with open(log_file_path, 'a', encoding='utf-8') as log_file:
@@ -186,10 +231,6 @@ def stop_active_server(server_id):
 
 
 def auto_install_dependencies_if_needed(server_path: str, log_file, server_name: str = "my-server"):
-    """
-    package.json varsa ve node_modules yoksa otomatik npm install çalıştırır.
-    package.json yoksa oluşturur.
-    """
     package_json_path = ensure_package_json_exists(server_path, server_name)
     node_modules_path = os.path.join(server_path, 'node_modules')
 
@@ -209,10 +250,6 @@ def auto_install_dependencies_if_needed(server_path: str, log_file, server_name:
 
 
 def is_safe_relative_path(rel_path: str) -> bool:
-    """
-    Güvenli dosya/klasör yolu kontrolü.
-    node_modules gizli ve korunmuş kabul edilir.
-    """
     rel_path = (rel_path or "").strip().replace("\\", "/")
     if not rel_path:
         return False
@@ -298,10 +335,10 @@ def dashboard_menu():
     for k, v in data.get('servers', {}).items():
         v = ensure_server_defaults(v)
         if can_access_server(v, current_email):
-            # Dashboard menüde istersen şablonda kullanabilirsin
             v["is_owner"] = normalize_email(v.get("owner")) == current_email
             user_servers[k] = v
 
+    # Menü yüklenirken aktif olmayanları durduruldu olarak işaretle
     for srv_id, srv_data in user_servers.items():
         if srv_data.get('status') == 'Çalışıyor' and srv_id not in active_processes:
             srv_data['status'] = 'Durduruldu'
@@ -342,12 +379,12 @@ def create_server():
     os.makedirs(server_path, exist_ok=True)
     os.makedirs(os.path.join(server_path, 'data'), exist_ok=True)
 
-    # Yeni sunucu oluşturulurken package.json da hazır olsun
     ensure_package_json_exists(server_path, server_name)
 
     default_code = (
         f"// {server_name} - Ana Dosya\n"
         f"console.log('Bot başlatılıyor...');\n"
+        f"setInterval(() => {{ console.log('Bot aktif...'); }}, 60000);\n" # Botun kapandığını test etmek için
     )
 
     with open(os.path.join(server_path, 'index.js'), 'w', encoding='utf-8') as f:
@@ -369,15 +406,12 @@ def delete_server(server_id):
         flash('Silme işlemi için yetkiniz yok.', 'danger')
         return redirect(url_for('dashboard_menu'))
 
-    # Çalışıyorsa kapat
     stop_active_server(server_id)
 
-    # Klasörü sil
     server_path = os.path.join(SERVERS_DIR, server_id)
     if os.path.exists(server_path):
         shutil.rmtree(server_path, ignore_errors=True)
 
-    # DB kaydını sil
     if server_id in data.get('servers', {}):
         del data['servers'][server_id]
 
@@ -454,7 +488,6 @@ def send_command(server_id):
     server_path = os.path.join(SERVERS_DIR, server_id)
     log_file_path = os.path.join(server_path, 'server_output.log')
 
-    # npm install / npm i gibi komutlar ayrı process olarak çalıştırılır
     if is_allowed_npm_command(cmd):
         try:
             run_npm_command(server_path, cmd, log_file_path, server_name=server.get('name', 'my-server'))
@@ -462,7 +495,6 @@ def send_command(server_id):
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
-    # Diğer komutlar sadece çalışan botun stdin'ine gönderilir
     if server_id in active_processes:
         try:
             proc = active_processes[server_id]['process']
@@ -505,11 +537,7 @@ def dashboard(server_id):
                 else:
                     try:
                         log_file = open(log_file_path, 'a', encoding='utf-8')
-
-                        # package.json yoksa oluştur, varsa dokunma
                         ensure_package_json_exists(server_path, server.get('name', 'my-server'))
-
-                        # package.json varsa ve node_modules yoksa otomatik kurulum yap
                         auto_install_dependencies_if_needed(
                             server_path,
                             log_file,
@@ -615,7 +643,6 @@ def dashboard(server_id):
 
     files_list = []
     for root, dirs, files in os.walk(server_path):
-        # node_modules görünmesin
         dirs[:] = [d for d in dirs if d != 'node_modules']
 
         for d in dirs:
@@ -645,6 +672,17 @@ def logout():
     return redirect(url_for('index'))
 
 
+# ==================== UYGULAMA BAŞLATICI ====================
+
 if __name__ == '__main__':
+    # 1. Klasör ve Veritabanı yapısını hazırla
     init_db()
-    app.run(debug=True, port=5000)
+    
+    # 2. Render yeniden başladıysa, açık kalması gereken botları geri getir
+    resume_all_running_servers()
+    
+    # 3. Sunucuyu uyutmamak için arka planda Ping atıcıyı başlat
+    threading.Thread(target=keep_alive, daemon=True).start()
+    
+    # 4. Web sunucusunu başlat
+    app.run(host='0.0.0.0', port=5000, debug=False)
