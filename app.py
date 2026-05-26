@@ -11,6 +11,7 @@ import urllib.request
 import urllib.error
 from flask import Flask, render_template, jsonify, request, session, flash, redirect, url_for
 
+# ==================== 1. FLASK UYGULAMASI VE LOG TANIMLARI ====================
 app = Flask(__name__)
 app.secret_key = 'discell_super_secret_safe_key_2026'
 
@@ -29,58 +30,7 @@ active_processes = {}
 MAX_SERVERS_PER_USER = 3
 
 
-# ==================== YENİ: OTOMATİK KURTARMA VE CANLI TUTMA ====================
-
-def keep_alive():
-    """Her 5 saniyede bir kendi URL'sine istek atarak Render'ın uyutmasını engeller."""
-    url = "https://vds-virtual-server.onrender.com/"
-    # Render'ın isteği engellememesi için tarayıcı kimliği ekliyoruz
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-    
-    while True:
-        try:
-            req = urllib.request.Request(url, headers=headers)
-            urllib.request.urlopen(req)
-            # Log kirliliği yaratmamak için başarılı pingleri ekrana yazdırmıyoruz
-            # Sadece arka planda 5 saniyede bir vurmaya devam edecek.
-        except Exception as e:
-            logging.error(f"[KEEP-ALIVE] Ping hatası: {e}")
-        time.sleep(5)  # 5 saniye bekle ve tekrar et
-
-def resume_all_running_servers():
-    """Render reset attığında, durumu 'Çalışıyor' olan botları otomatik tekrar başlatır."""
-    logging.info("[AUTO-RESUME] Çalışması gereken botlar kontrol ediliyor...")
-    data = load_data()
-    for server_id, server_data in data.get('servers', {}).items():
-        if server_data.get('status') == 'Çalışıyor':
-            server_path = os.path.join(SERVERS_DIR, server_id)
-            main_file = server_data.get('main_file', 'index.js')
-            target_file = os.path.join(server_path, main_file)
-            log_file_path = os.path.join(server_path, 'server_output.log')
-
-            if os.path.exists(target_file) and server_id not in active_processes:
-                try:
-                    log_file = open(log_file_path, 'a', encoding='utf-8')
-                    log_file.write("\n[SİSTEM] Sunucu yeniden başladı, bot otomatik kurtarıldı.\n")
-                    log_file.flush()
-
-                    process = subprocess.Popen(
-                        ['node', main_file],
-                        cwd=server_path,
-                        stdin=subprocess.PIPE,
-                        stdout=log_file,
-                        stderr=subprocess.STDOUT
-                    )
-
-                    active_processes[server_id] = {
-                        "process": process,
-                        "log_file": log_file
-                    }
-                    logging.info(f"[AUTO-RESUME] {server_data.get('name')} ({server_id}) başarıyla kurtarıldı.")
-                except Exception as e:
-                    logging.error(f"[AUTO-RESUME] {server_id} başlatılamadı: {e}")
-
-# ==================== VERİTABANI VE YARDIMCI FONKSİYONLAR ====================
+# ==================== 2. VERİTABANI VE YARDIMCI FONKSİYONLAR ====================
 
 def init_db():
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -136,7 +86,7 @@ def can_share_server(server: dict, email: str) -> bool:
 def is_allowed_npm_command(command: str) -> bool:
     cmd = (command or "").strip()
     
-    # GÜVENLİK: Tehlikeli shell komutlarını (pipe, zincirleme vs.) engelle
+    # GÜVENLİK: Tehlikeli shell komutlarını engelle
     dangerous_chars = [';', '&', '|', '>', '<', '$', '`']
     if any(char in cmd for char in dangerous_chars):
         return False
@@ -280,7 +230,67 @@ def ensure_server_defaults(server: dict):
     return server
 
 
-# ==================== KULLANICI ARAYÜZÜ (UI) ROTALARI ====================
+# ==================== 3. OTOMATİK KURTARMA VE CANLI TUTMA MEKANİZMASI ====================
+
+def keep_alive_daemon():
+    """Her 5 saniyede bir kendi URL'sine istek atar. Print komutu Render loglarına anında düşer."""
+    url = "https://vds-virtual-server.onrender.com/"
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) KeepAlive/1.0'}
+    
+    # Gunicorn sunucunun tam ayağa kalkması için 3 saniye bekle
+    time.sleep(3)
+    
+    while True:
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req) as response:
+                if response.status == 200:
+                    # Gunicorn / Render console ekranında direkt görebilmen için print kullandık
+                    print(f"[CANLI-TUTMA] {time.strftime('%Y-%m-%d %H:%M:%S')} - Sunucu başarıyla tetiklendi (200 OK)", flush=True)
+        except Exception as e:
+            print(f"[CANLI-TUTMA] Ping hatası oluştu: {e}", flush=True)
+        time.sleep(5)
+
+
+def resume_all_running_servers():
+    """Render reset attığında, durumu 'Çalışıyor' olan botları otomatik tekrar başlatır."""
+    logging.info("[AUTO-RESUME] Çalışması gereken botlar kontrol ediliyor...")
+    data = load_data()
+    for server_id, server_data in data.get('servers', {}).items():
+        if server_data.get('status') == 'Çalışıyor':
+            server_path = os.path.join(SERVERS_DIR, server_id)
+            main_file = server_data.get('main_file', 'index.js')
+            target_file = os.path.join(server_path, main_file)
+            log_file_path = os.path.join(server_path, 'server_output.log')
+
+            if os.path.exists(target_file) and server_id not in active_processes:
+                try:
+                    log_file = open(log_file_path, 'a', encoding='utf-8')
+                    log_file.write("\n[SİSTEM] Sunucu yeniden başladı, bot otomatik kurtarıldı.\n")
+                    log_file.flush()
+
+                    process = subprocess.Popen(
+                        ['node', main_file],
+                        cwd=server_path,
+                        stdin=subprocess.PIPE,
+                        stdout=log_file,
+                        stderr=subprocess.STDOUT
+                    )
+
+                    active_processes[server_id] = {
+                        "process": process,
+                        "log_file": log_file
+                    }
+                    logging.info(f"[AUTO-RESUME] {server_data.get('name')} ({server_id}) başarıyla kurtarıldı.")
+                except Exception as e:
+                    logging.error(f"[AUTO-RESUME] {server_id} başlatılamadı: {e}")
+
+
+# Modül seviyesinde thread başlatma (Böylece Gunicorn dosyayı import ettiği an arka planda çalışır)
+threading.Thread(target=keep_alive_daemon, daemon=True).start()
+
+
+# ==================== 4. FLASK URL / WEB ROTALARI ====================
 
 @app.route('/')
 def index():
@@ -344,7 +354,6 @@ def dashboard_menu():
             v["is_owner"] = normalize_email(v.get("owner")) == current_email
             user_servers[k] = v
 
-    # Menü yüklenirken aktif olmayanları durduruldu olarak işaretle
     for srv_id, srv_data in user_servers.items():
         if srv_data.get('status') == 'Çalışıyor' and srv_id not in active_processes:
             srv_data['status'] = 'Durduruldu'
@@ -426,7 +435,6 @@ def delete_server(server_id):
     return redirect(url_for('dashboard_menu'))
 
 
-# --- API: AJAX DOSYA OKUMA ---
 @app.route('/dashboard/<server_id>/read-file', methods=['GET'])
 def read_file(server_id):
     if 'username' not in session:
@@ -454,7 +462,6 @@ def read_file(server_id):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-# --- API: CANLI LOG ÇEKME ---
 @app.route('/api/server/<server_id>/logs', methods=['GET'])
 def get_logs(server_id):
     if 'username' not in session:
@@ -474,7 +481,6 @@ def get_logs(server_id):
     return jsonify({'logs': 'Henüz log yok veya sunucu kapalı.'})
 
 
-# --- API: KONSOLA KOMUT GÖNDERME ---
 @app.route('/api/server/<server_id>/command', methods=['POST'])
 def send_command(server_id):
     if 'username' not in session:
@@ -678,17 +684,9 @@ def logout():
     return redirect(url_for('index'))
 
 
-# ==================== UYGULAMA BAŞLATICI ====================
+# ==================== 5. EL İLE BAŞLATMA (LOCAL TEST İÇİN) ====================
 
 if __name__ == '__main__':
-    # 1. Klasör ve Veritabanı yapısını hazırla
     init_db()
-    
-    # 2. Render yeniden başladıysa, açık kalması gereken botları geri getir
     resume_all_running_servers()
-    
-    # 3. Sunucuyu uyutmamak için arka planda Ping atıcıyı başlat (urllib ile, 5 saniyede bir)
-    threading.Thread(target=keep_alive, daemon=True).start()
-    
-    # 4. Web sunucusunu başlat
     app.run(host='0.0.0.0', port=5000, debug=False)
