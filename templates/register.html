@@ -18,6 +18,7 @@
             --text-muted: #a3a7ae;
             --neon-cyan: #00f2fe;
             --neon-purple: #9b51e0;
+            --neon-green: #00e676;
         }
 
         body { 
@@ -29,13 +30,11 @@
             align-items: center;
             justify-content: center;
             position: relative;
-            /* Giriş sayfasıyla uyumlu siber arka plan duman efekti */
             background-image: 
                 radial-gradient(circle at 50% 40%, rgba(155, 81, 224, 0.08) 0%, transparent 50%),
                 radial-gradient(circle at 50% 60%, rgba(0, 242, 254, 0.04) 0%, transparent 50%);
         }
 
-        /* Kayıt Kartı Tasarımı ve Giriş Animasyonu */
         .auth-card { 
             background-color: var(--bg-card); 
             width: 100%;
@@ -58,7 +57,6 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Başlık Gradient Etkisi */
         .gradient-title {
             background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple));
             -webkit-background-clip: text;
@@ -66,7 +64,6 @@
             letter-spacing: -0.5px;
         }
 
-        /* Form Elemanları ve Akıllı Odaklanma Efektleri */
         .form-label {
             color: var(--text-main);
             font-weight: 500;
@@ -91,7 +88,6 @@
             box-shadow: 0 0 15px rgba(0, 242, 254, 0.25);
         }
 
-        /* Hesap Oluştur Buton Parlaması */
         .btn-neon {
             background: linear-gradient(135deg, #7b2cbf, var(--neon-purple));
             color: white !important;
@@ -111,7 +107,6 @@
             transform: translateY(0);
         }
 
-        /* Alt Linkler */
         .text-link {
             color: var(--neon-cyan) !important;
             font-weight: 500;
@@ -122,7 +117,6 @@
             text-shadow: 0 0 8px rgba(0, 242, 254, 0.6);
         }
 
-        /* Jinja2 Uyarı Kutuları */
         .alert {
             border-radius: 12px;
             background-color: rgba(20, 22, 29, 0.5);
@@ -130,8 +124,9 @@
             color: var(--text-main);
             backdrop-filter: blur(5px);
         }
-        .alert-success { border-left: 4px solid #00e676; }
+        .alert-success { border-left: 4px solid var(--neon-green); }
         .alert-danger { border-left: 4px solid #ff4d4d; }
+        .alert-info { border-left: 4px solid var(--neon-cyan); }
     </style>
 </head>
 <body>
@@ -139,13 +134,11 @@
     <div class="container d-flex justify-content-center">
         <div class="card auth-card p-4 p-sm-5">
             
-            <!-- Başlık Bölümü -->
             <div class="text-center mb-4">
                 <h2 class="fw-bold gradient-title mb-1">Discell'e Kayıt Ol</h2>
                 <p class="small text-muted">Ücretsiz bulut alanını almak için hesabını oluştur.</p>
             </div>
 
-            <!-- Jinja2 Flash Mesajları -->
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
@@ -156,7 +149,10 @@
                 {% endif %}
             {% endwith %}
 
-            <!-- Form -->
+            <div class="alert alert-info small py-3 mb-4 shadow-sm">
+                Kayıt olduktan sonra Gmail adresine doğrulama bağlantısı gönderilecek. Bağlantıya tıklamadan giriş yapamazsın.
+            </div>
+
             <form action="/register" method="POST">
                 <div class="mb-3 form-group">
                     <label class="form-label small mb-2">Kullanıcı Adı</label>
