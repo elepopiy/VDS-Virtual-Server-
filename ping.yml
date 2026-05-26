@@ -1,0 +1,54 @@
+name: Askeri Düzeyde Kesintisiz 5 Saniye Ping Sistemi
+
+on:
+  workflow_dispatch: # Manuel başlatmak için
+  repository_dispatch:
+    types: [live_trigger_event] # Zincirleme tetikleme sinyali
+  schedule:
+    - cron: '0 */3 * * *' # Her 3 saatte bir zincir kırıldıysa otomatik tamir eder
+
+jobs:
+  # BİRİNCİ MOTOR (WORKER A)
+  worker-alpha:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+
+    steps:
+      - name: Alpha Motoru - 4 Saat Boyunca Her 5 Saniyede Bir Ping At
+        run: |
+          echo "Alpha Motoru Ateşlendi..."
+          # Güvenli kalmak için 4 saat (14400 saniye) çalışır
+          END_TIME=$((SECONDS + 14400))
+          
+          while [ $SECONDS -lt $END_TIME ]; do
+            # İstek başarısız olsa bile (|| true) döngü kırılmaz, devam eder
+            curl -I -s --connect-timeout 3 https://vds-virtual-server.onrender.com/ > /dev/null || true
+            sleep 5
+          done
+
+      - name: Alpha Süresi Bitti - Yeni Zinciri Tetikle
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/dispatches \
+            -d '{"event_type": "live_trigger_event"}'
+
+  # İKİNCİ YEDEK MOTOR (WORKER BETA)
+  worker-beta:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+
+    steps:
+      - name: Beta Motoru (Yedek) - 4 Saat Boyunca Her 5 Saniyede Bir Ping At
+        run: |
+          echo "Beta Motoru (Yedek) Ateşlendi..."
+          # Alpha ile aynı anda çalışır, milisaniyelik kaymaları kapatır
+          END_TIME=$((SECONDS + 14400))
+          
+          while [ $SECONDS -lt $END_TIME ]; do
+            curl -I -s --connect-timeout 3 https://vds-virtual-server.onrender.com/ > /dev/null || true
+            sleep 5
+          done
