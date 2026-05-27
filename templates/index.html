@@ -5,44 +5,45 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Discell | Discord Cloud Hosting</title>
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <style>
         :root {
-            --primary: #9b51e0; /* E.M.N Neon Mor */
-            --neon-cyan: #00f2fe; /* E.M.N Camgöbeği */
-            --bg: #0b0c10; /* Panelle aynı derin siyah/koyu gri */
-            --card-bg: #14161d; /* Panelle uyumlu kart rengi */
+            --primary: #9b51e0;
+            --neon-cyan: #00f2fe;
+            --bg: #0b0c10;
+            --card-bg: #14161d;
             --text-main: #f2f3f5;
-            --text-muted: #a3a7ae; /* Okunmayan siyah/gri harfleri çözen renk */
+            --text-muted: #a3a7ae;
         }
 
-        body { 
-            background-color: var(--bg); 
-            color: var(--text-main); 
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
             font-family: 'Inter', sans-serif;
             overflow-x: hidden;
-            background-image: 
+            background-image:
                 radial-gradient(circle at 10% 20%, rgba(155, 81, 224, 0.05) 0%, transparent 40%),
                 radial-gradient(circle at 90% 80%, rgba(0, 242, 254, 0.05) 0%, transparent 40%);
         }
 
-        .navbar { 
-            background: rgba(20, 22, 29, 0.7) !important; 
-            backdrop-filter: blur(15px); 
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05); 
-            transition: 0.3s;
+        .navbar {
+            background: rgba(20, 22, 29, 0.7) !important;
+            backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
+
         .navbar-brand {
             font-size: 1.4rem;
             letter-spacing: 1px;
         }
 
-        .hero { padding: 160px 0 100px 0; position: relative; }
-        
+        .hero {
+            padding: 160px 0 100px 0;
+            position: relative;
+        }
+
         .gradient-text {
             background: linear-gradient(90deg, var(--neon-cyan), var(--primary));
             -webkit-background-clip: text;
@@ -54,15 +55,16 @@
             color: var(--text-muted) !important;
         }
 
-        .card { 
-            background: var(--card-bg) !important; 
-            border: 1px solid rgba(255, 255, 255, 0.04) !important; 
+        .card {
+            background: var(--card-bg) !important;
+            border: 1px solid rgba(255, 255, 255, 0.04) !important;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             border-radius: 20px;
             overflow: hidden;
         }
-        .card:hover { 
-            transform: translateY(-10px); 
+
+        .card:hover {
+            transform: translateY(-10px);
             box-shadow: 0 15px 35px rgba(0, 242, 254, 0.08);
             border-color: rgba(0, 242, 254, 0.2) !important;
         }
@@ -94,6 +96,7 @@
             border: none;
             transition: all 0.3s ease;
         }
+
         .btn-glow:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(155, 81, 224, 0.4);
@@ -107,6 +110,7 @@
             font-weight: 500;
             transition: 0.2s;
         }
+
         .btn-outline-custom:hover {
             background: rgba(255, 255, 255, 0.05);
             color: white;
@@ -122,6 +126,7 @@
             font-weight: 500;
             transition: 0.2s;
         }
+
         .btn-primary-custom:hover {
             background: var(--neon-cyan);
             color: #000;
@@ -134,7 +139,6 @@
             border-radius: 18px;
             padding: 22px;
             height: 100%;
-            box-shadow: 0 0 0 rgba(0,0,0,0);
         }
 
         .stat-label {
@@ -163,109 +167,113 @@
 </head>
 <body>
 
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark fixed-top py-3">
-        <div class="container">
-            <a class="navbar-brand fw-bold" href="/">DIS<span style="color: var(--neon-cyan);">CELL</span></a>
-            <div>
-                <a href="/login" class="btn btn-outline-custom me-2">Giriş</a>
-                <a href="/register" class="btn btn-primary-custom">Kayıt Ol</a>
+<nav class="navbar navbar-expand-lg navbar-dark fixed-top py-3">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="/">DIS<span style="color: var(--neon-cyan);">CELL</span></a>
+        <div>
+            <a href="/login" class="btn btn-outline-custom me-2">Giriş</a>
+            <a href="/register" class="btn btn-primary-custom">Kayıt Ol</a>
+        </div>
+    </div>
+</nav>
+
+<div class="hero text-center">
+    <div class="container">
+        <div class="free-badge d-inline-block mb-4">✨ TAMAMEN ÜCRETSİZ</div>
+        <h1 class="display-3 fw-bold mb-4" style="letter-spacing: -1px;">
+            Discord Botlarınızı <br><span class="gradient-text">Bulutta Özgürleştirin</span>
+        </h1>
+        <p class="lead text-secondary-custom mb-5 w-75 mx-auto" style="font-size: 1.15rem; line-height: 1.7;">
+            Node.js botlarınız için 7/24 kesintisiz, modern panel üzerinden yönetilebilir yeni nesil hosting çözümü.
+        </p>
+
+        <a href="/register" class="btn btn-glow btn-lg px-5 shadow">Ücretsiz Başla</a>
+
+        <div class="row g-4 mt-5 text-start">
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-label">Aktif Sunucu</div>
+                    <div class="stat-value stat-highlight">{{ active_servers }}</div>
+                    <div class="small-note mt-2">Şu anda çalışan sanal sunucular</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-label">Kayıtlı Kullanıcı</div>
+                    <div class="stat-value">{{ registered_users }}</div>
+                    <div class="small-note mt-2">Toplam kayıtlı hesap sayısı</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-label">Şu Anda Sitede</div>
+                    <div class="stat-value stat-highlight" id="onlineCount">{{ online_visitors }}</div>
+                    <div class="small-note mt-2">Canlı oturumlara göre güncellenir</div>
+                </div>
             </div>
         </div>
-    </nav>
 
-    <!-- Hero Bölümü -->
-    <div class="hero text-center">
-        <div class="container">
-            <div class="free-badge d-inline-block mb-4">✨ TAMAMEN ÜCRETSİZ</div>
-            <h1 class="display-3 fw-bold mb-4" style="letter-spacing: -1px;">Discord Botlarınızı <br><span class="gradient-text">Bulutta Özgürleştirin</span></h1>
-            <p class="lead text-secondary-custom mb-5 w-75 mx-auto" style="font-size: 1.15rem; line-height: 1.7;">Node.js botlarınız için 7/24 kesintisiz, modern panel üzerinden yönetilebilir yeni nesil hosting çözümü.</p>
-            
-            <a href="/register" class="btn btn-glow btn-lg px-5 shadow">Ücretsiz Başla</a>
-
-            <!-- Canlı İstatistikler -->
-            <div class="row g-4 mt-5 text-start">
-                <div class="col-md-4">
-                    <div class="stat-card">
-                        <div class="stat-label">Aktif Sunucu</div>
-                        <div class="stat-value stat-highlight">{{ active_servers }}</div>
-                        <div class="small-note mt-2">Şu anda çalışan sanal sunucular</div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="stat-card">
-                        <div class="stat-label">Kayıtlı Kullanıcı</div>
-                        <div class="stat-value">{{ registered_users }}</div>
-                        <div class="small-note mt-2">Toplam kayıtlı hesap sayısı</div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="stat-card">
-                        <div class="stat-label">Şu Anda Sitede</div>
-                        <div class="stat-value stat-highlight" id="onlineCount">{{ online_visitors }}</div>
-                        <div class="small-note mt-2">Canlı oturumlara göre güncellenir</div>
-                    </div>
+        <div class="row g-4 mt-5 text-start">
+            <div class="col-md-4">
+                <div class="card h-100 p-4">
+                    <h4 class="text-white mb-3" style="font-weight: 600;">
+                        <span style="color: var(--neon-cyan); margin-right: 8px;">🚀</span> 7/24 Aktif
+                    </h4>
+                    <p class="text-secondary-custom small mb-0" style="line-height: 1.6;">
+                        Botlarınızı kesintisiz çalıştırmak için hazırlanan panel.
+                    </p>
                 </div>
             </div>
-
-            <!-- Özellik Kartları -->
-            <div class="row g-4 mt-5 text-start">
-                <div class="col-md-4">
-                    <div class="card h-100 p-4">
-                        <h4 class="text-white mb-3" style="font-weight: 600;">
-                            <span style="color: var(--neon-cyan); margin-right: 8px;">🚀</span> 7/24 Aktif
-                        </h4>
-                        <p class="text-secondary-custom small mb-0" style="line-height: 1.6;">Bilgisayarınız kapalıyken bile botunuzun kesintisiz çalışmasını sağlayan altyapı.</p>
-                    </div>
+            <div class="col-md-4">
+                <div class="card h-100 p-4">
+                    <h4 class="text-white mb-3" style="font-weight: 600;">
+                        <span style="color: var(--primary); margin-right: 8px;">⚙️</span> Modern Panel
+                    </h4>
+                    <p class="text-secondary-custom small mb-0" style="line-height: 1.6;">
+                        Dosya yönetimi, loglar ve kontrol araçları tek yerde.
+                    </p>
                 </div>
-                <div class="col-md-4">
-                    <div class="card h-100 p-4">
-                        <h4 class="text-white mb-3" style="font-weight: 600;">
-                            <span style="color: var(--primary); margin-right: 8px;">⚙️</span> Modern Panel
-                        </h4>
-                        <p class="text-secondary-custom small mb-0" style="line-height: 1.6;">Gerçek zamanlı konsol takibi, dosya yönetimi ve tek tıkla kontrol seçenekleri.</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card h-100 p-4">
-                        <h4 class="text-white mb-3" style="font-weight: 600;">
-                            <span style="color: var(--neon-cyan); margin-right: 8px;">🛠️</span> Kolay Yönetim
-                        </h4>
-                        <p class="text-secondary-custom small mb-0" style="line-height: 1.6;">Basit arayüz ile botlarını kur, başlat, durdur ve dosyalarını düzenle.</p>
-                    </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 p-4">
+                    <h4 class="text-white mb-3" style="font-weight: 600;">
+                        <span style="color: var(--neon-cyan); margin-right: 8px;">🛠️</span> Kolay Yönetim
+                    </h4>
+                    <p class="text-secondary-custom small mb-0" style="line-height: 1.6;">
+                        Basit arayüz ile sunucularını kolayca yönet.
+                    </p>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <script>
-        async function updateSiteHeartbeat() {
-            try {
-                const response = await fetch('/api/site-heartbeat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ page: 'home' })
-                });
+<script>
+    async function updateSiteHeartbeat() {
+        try {
+            const response = await fetch('/api/site-heartbeat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ page: 'home' })
+            });
 
-                if (!response.ok) return;
+            if (!response.ok) return;
 
-                const data = await response.json();
-                const onlineCount = document.getElementById('onlineCount');
-                if (onlineCount && typeof data.online_visitors !== 'undefined') {
-                    onlineCount.textContent = data.online_visitors;
-                }
-            } catch (error) {
-                // sessiz kal
+            const data = await response.json();
+            const onlineCount = document.getElementById('onlineCount');
+            if (onlineCount && typeof data.online_visitors !== 'undefined') {
+                onlineCount.textContent = data.online_visitors;
             }
-        }
+        } catch (error) {}
+    }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            updateSiteHeartbeat();
-            setInterval(updateSiteHeartbeat, 15000);
-        });
-    </script>
+    document.addEventListener('DOMContentLoaded', () => {
+        updateSiteHeartbeat();
+        setInterval(updateSiteHeartbeat, 15000);
+    });
+</script>
 
 </body>
 </html>
