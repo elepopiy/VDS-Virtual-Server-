@@ -39,7 +39,6 @@ APP_BASE_URL = os.getenv("APP_BASE_URL", "https://vds-virtual-server.onrender.co
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 
-# Birkaç farklı env adı destekleniyor
 SMTP_EMAIL = (
     os.getenv("SMTP_EMAIL")
     or os.getenv("GMAIL_EMAIL")
@@ -58,6 +57,8 @@ SMTP_APP_PASSWORD = (
 EMAIL_VERIFICATION_REQUIRED = True
 VERIFICATION_TOKEN_EXPIRY_SECONDS = 24 * 60 * 60
 
+DATA_LOCK = threading.Lock()
+
 
 # ==================== 2. VERİTABANI VE YARDIMCI FONKSİYONLAR ====================
 
@@ -72,16 +73,20 @@ def init_db():
 
 def load_data():
     init_db()
-    try:
-        with open(DB_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except json.JSONDecodeError:
-        return {"settings": {}, "users": {}, "servers": {}, "logs": []}
+    with DATA_LOCK:
+        try:
+            with open(DB_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            return {"settings": {}, "users": {}, "servers": {}, "logs": []}
+        except FileNotFoundError:
+            return {"settings": {}, "users": {}, "servers": {}, "logs": []}
 
 
 def save_data(data):
-    with open(DB_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+    with DATA_LOCK:
+        with open(DB_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
 
 
 def normalize_email(email: str) -> str:
@@ -92,11 +97,15 @@ def ensure_user_defaults(user: dict):
     if not isinstance(user, dict):
         return {}
     if "verified" not in user:
-        user["verified"] = True  # Eski kullanıcılar için uyumluluk
+        user["verified"] = True
     if "verify_token" not in user:
         user["verify_token"] = ""
     if "verify_token_created_at" not in user:
         user["verify_token_created_at"] = 0
+    if "password" not in user:
+        user["password"] = ""
+    if "username" not in user:
+        user["username"] = ""
     return user
 
 
@@ -142,7 +151,6 @@ def can_access_server(server: dict, email: str) -> bool:
 
     owner = normalize_email(server.get('owner'))
     collaborators = [normalize_email(x) for x in server.get('collaborators', [])]
-
     return email == owner or email in collaborators
 
 
@@ -304,6 +312,8 @@ def ensure_server_defaults(server: dict):
         server["ram"] = "1 GB"
     if "cpu" not in server:
         server["cpu"] = "1 vCPU"
+    if "status" not in server:
+        server["status"] = "Durduruldu"
     return server
 
 
@@ -376,6 +386,84 @@ def send_verification_email(to_email: str, username: str, token: str):
         smtp.sendmail(SMTP_EMAIL, [to_email], msg.as_string())
 
 
+def sync_runtime_status_to_db():
+    """
+    Her saniye çalışır:
+    - Çalışan process varsa status = Çalışıyor
+    - Process yoksa ve DB'de Çalışıyor görünüyorsa, watchdog onu tekrar başlatır
+    - Dosya her saniye tekrar kaydedilir
+    """
+    while True:
+        try:
+            data = load_data()
+            changed = False
+
+            for server_id, server in data.get("servers", {}).items():
+                server = ensure_server_defaults(server)
+
+                if server_id in active_processes:
+                    if server.get("status") != "Çalışıyor":
+                        server["status"] = "Çalışıyor"
+                        data["servers"][server_id] = server
+                        changed = True
+                else:
+                    # Process yoksa ama kayıt "Çalışıyor" ise burada sadece DB'yi bozmuyoruz.
+                    # Watchdog restart deneyecek.
+                    pass
+
+            save_data(data)
+
+            if changed:
+                logging.info("[AUTO-SAVE] Çalışan sunucu durumları güncellendi.")
+        except Exception as e:
+            logging.error(f"[AUTO-SAVE] Hata: {e}")
+
+        time.sleep(1)
+
+
+def server_watchdog_daemon():
+    """
+    Sunucu 'Çalışıyor' kayıtlıysa ama process düşmüşse yeniden ayağa kaldırır.
+    """
+    while True:
+        try:
+            data = load_data()
+            for server_id, server_data in data.get("servers", {}).items():
+                server_data = ensure_server_defaults(server_data)
+                if server_data.get("status") == "Çalışıyor" and server_id not in active_processes:
+                    server_path = os.path.join(SERVERS_DIR, server_id)
+                    main_file = server_data.get("main_file", "index.js")
+                    target_file = os.path.join(server_path, main_file)
+                    log_file_path = os.path.join(server_path, "server_output.log")
+
+                    if os.path.exists(target_file):
+                        try:
+                            log_file = open(log_file_path, "a", encoding="utf-8")
+                            log_file.write("\n[SİSTEM] Process düştü, otomatik yeniden başlatılıyor.\n")
+                            log_file.flush()
+
+                            process = subprocess.Popen(
+                                ["node", main_file],
+                                cwd=server_path,
+                                stdin=subprocess.PIPE,
+                                stdout=log_file,
+                                stderr=subprocess.STDOUT
+                            )
+
+                            active_processes[server_id] = {
+                                "process": process,
+                                "log_file": log_file
+                            }
+
+                            logging.info(f"[WATCHDOG] {server_data.get('name')} ({server_id}) yeniden başlatıldı.")
+                        except Exception as e:
+                            logging.error(f"[WATCHDOG] {server_id} başlatılamadı: {e}")
+        except Exception as e:
+            logging.error(f"[WATCHDOG] Hata: {e}")
+
+        time.sleep(5)
+
+
 # ==================== 3. OTOMATİK KURTARMA VE CANLI TUTMA MEKANİZMASI ====================
 
 def keep_alive_daemon():
@@ -401,6 +489,7 @@ def resume_all_running_servers():
     logging.info("[AUTO-RESUME] Çalışması gereken botlar kontrol ediliyor...")
     data = load_data()
     for server_id, server_data in data.get('servers', {}).items():
+        server_data = ensure_server_defaults(server_data)
         if server_data.get('status') == 'Çalışıyor':
             server_path = os.path.join(SERVERS_DIR, server_id)
             main_file = server_data.get('main_file', 'index.js')
@@ -430,7 +519,10 @@ def resume_all_running_servers():
                     logging.error(f"[AUTO-RESUME] {server_id} başlatılamadı: {e}")
 
 
+# Modül seviyesinde thread başlatma
 threading.Thread(target=keep_alive_daemon, daemon=True).start()
+threading.Thread(target=sync_runtime_status_to_db, daemon=True).start()
+threading.Thread(target=server_watchdog_daemon, daemon=True).start()
 
 
 # ==================== 4. FLASK URL / WEB ROTALARI ====================
@@ -459,29 +551,39 @@ def register():
 
         verify_token = generate_verification_token()
 
+        # Mail ayarı varsa doğrulama gerekir.
+        # Mail ayarı yoksa kullanıcı kilitlenmesin diye otomatik doğrulanmış sayılır.
+        user_verified = not mail_config_ready()
+
         data['users'][email] = {
             "username": username,
             "password": generate_password_hash(password),
-            "verified": False,
-            "verify_token": verify_token,
-            "verify_token_created_at": time.time()
+            "verified": user_verified,
+            "verify_token": verify_token if not user_verified else "",
+            "verify_token_created_at": time.time() if not user_verified else 0
         }
         save_data(data)
 
-        try:
-            if mail_config_ready():
+        if mail_config_ready():
+            try:
                 send_verification_email(email, username, verify_token)
                 flash('Hesabın oluşturuldu! Gmail adresine doğrulama bağlantısı gönderildi.', 'success')
-            else:
+            except Exception as e:
+                # Mail gönderilemese bile kullanıcıyı kilitleme
+                data = load_data()
+                data["users"][email]["verified"] = True
+                data["users"][email]["verify_token"] = ""
+                data["users"][email]["verify_token_created_at"] = 0
+                save_data(data)
+
                 flash(
-                    'Hesabın oluşturuldu, fakat mail ayarları eksik olduğu için doğrulama maili gönderilemedi. '
-                    'SMTP_EMAIL ve SMTP_APP_PASSWORD veya GMAIL_EMAIL ve GMAIL_APP_PASSWORD ayarla.',
+                    f'Hesabın oluşturuldu ama doğrulama maili gönderilemedi. Mail yerine otomatik erişim açıldı. Hata: {str(e)}',
                     'warning'
                 )
-        except Exception as e:
+        else:
             flash(
-                f'Hesabın oluşturuldu ama doğrulama maili gönderilemedi: {str(e)}',
-                'danger'
+                'Hesabın oluşturuldu. Mail ayarları tanımlı olmadığı için doğrulama atlandı ve giriş açıldı.',
+                'warning'
             )
 
         return redirect(url_for('login'))
@@ -532,8 +634,15 @@ def login():
                     save_data(data)
 
                 if EMAIL_VERIFICATION_REQUIRED and not user.get("verified", True):
-                    flash('Hesabın doğrulanmamış. Gmail kutunu kontrol et.', 'warning')
-                    return redirect(url_for('login'))
+                    if mail_config_ready():
+                        flash('Hesabın doğrulanmamış. Gmail kutunu kontrol et.', 'warning')
+                        return redirect(url_for('login'))
+                    else:
+                        user["verified"] = True
+                        user["verify_token"] = ""
+                        user["verify_token_created_at"] = 0
+                        data["users"][email] = user
+                        save_data(data)
 
                 session['email'] = email
                 session['username'] = user.get('username', '')
