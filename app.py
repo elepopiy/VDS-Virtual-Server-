@@ -25,10 +25,15 @@ app.secret_key = os.getenv("SECRET_KEY", "discell_super_secret_safe_key_2026")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data")
+
+# Kalıcı disk bağlamak için env kullanabilirsin:
+# Render Disk mount örneği: /var/data
+PERSIST_DIR = os.getenv("PERSIST_DIR", BASE_DIR)
+
+DATA_DIR = os.path.join(PERSIST_DIR, "data")
 DB_FILE = os.path.join(DATA_DIR, "db.json")
 DB_BACKUP_FILE = os.path.join(DATA_DIR, "db.backup.json")
-SERVERS_DIR = os.path.join(BASE_DIR, "servers_data")
+SERVERS_DIR = os.path.join(PERSIST_DIR, "servers_data")
 
 active_processes = {}
 MAX_SERVERS_PER_USER = 3
@@ -56,14 +61,25 @@ EMAIL_VERIFICATION_REQUIRED = True
 VERIFICATION_TOKEN_EXPIRY_SECONDS = 24 * 60 * 60
 
 ONLINE_SESSION_TTL_SECONDS = 60
-DATA_LOCK = threading.Lock()
+SESSION_PRESENCE_THROTTLE_SECONDS = 15
+
+DATA_LOCK = threading.RLock()
 DB_CACHE = None
 DB_DIRTY = False
 DB_LAST_FLUSH = 0.0
-DB_FLUSH_INTERVAL = 1.0
 
 
-# ==================== 2. VERİTABANI YARDIMCILARI ====================
+# ==================== 2. DB YARDIMCILARI ====================
+
+def default_db():
+    return {
+        "settings": {},
+        "users": {},
+        "servers": {},
+        "logs": [],
+        "presence": {}
+    }
+
 
 def ensure_db_defaults(data):
     if not isinstance(data, dict):
@@ -79,16 +95,6 @@ def ensure_db_defaults(data):
     if "presence" not in data or not isinstance(data.get("presence"), dict):
         data["presence"] = {}
     return data
-
-
-def default_db():
-    return {
-        "settings": {},
-        "users": {},
-        "servers": {},
-        "logs": [],
-        "presence": {}
-    }
 
 
 def init_db():
@@ -126,24 +132,24 @@ def load_data(force_disk=False):
 
     with DATA_LOCK:
         if DB_CACHE is not None and not force_disk:
-            return DB_CACHE
+            return deepcopy(DB_CACHE)
 
         try:
             data = _load_json_file(DB_FILE)
             data = ensure_db_defaults(data)
             DB_CACHE = data
-            return DB_CACHE
+            return deepcopy(DB_CACHE)
         except Exception:
             try:
                 data = _load_json_file(DB_BACKUP_FILE)
                 data = ensure_db_defaults(data)
                 DB_CACHE = data
                 _atomic_write_json(DB_FILE, DB_CACHE)
-                return DB_CACHE
+                return deepcopy(DB_CACHE)
             except Exception:
                 DB_CACHE = default_db()
                 _atomic_write_json(DB_FILE, DB_CACHE)
-                return DB_CACHE
+                return deepcopy(DB_CACHE)
 
 
 def save_data(data):
@@ -163,14 +169,9 @@ def save_data(data):
         DB_LAST_FLUSH = time.time()
 
 
-def mark_db_dirty():
-    global DB_DIRTY
-    with DATA_LOCK:
-        DB_DIRTY = True
-
-
 def flush_db_if_needed(force=False):
-    global DB_DIRTY
+    global DB_DIRTY, DB_LAST_FLUSH
+
     with DATA_LOCK:
         if DB_CACHE is None:
             return
@@ -186,27 +187,16 @@ def flush_db_if_needed(force=False):
 
     with DATA_LOCK:
         DB_DIRTY = False
-        global DB_LAST_FLUSH
         DB_LAST_FLUSH = time.time()
 
 
-def mutate_db(mutator):
-    """
-    db.json üzerinde güvenli ve canlı değişiklik yapar.
-    mutator(data) -> data döndürebilir veya inplace değiştirebilir.
-    """
+def mark_db_dirty():
+    global DB_DIRTY
     with DATA_LOCK:
-        data = load_data()
-        working = deepcopy(data)
-        result = mutator(working)
-        if result is not None:
-            working = result
-        working = ensure_db_defaults(working)
-        save_data(working)
-        return working
+        DB_DIRTY = True
 
 
-# ==================== 3. KULLANICI / SUNUCU YARDIMCILARI ====================
+# ==================== 3. GENEL YARDIMCILAR ====================
 
 def normalize_email(email: str) -> str:
     return (email or "").strip().lower()
@@ -422,6 +412,69 @@ def send_verification_email(to_email: str, username: str, token: str):
         smtp.sendmail(SMTP_EMAIL, [to_email], msg.as_string())
 
 
+def stop_active_server(server_id):
+    if server_id in active_processes:
+        proc_info = active_processes[server_id]
+        try:
+            proc = proc_info.get("process")
+            if proc:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=5)
+                except Exception:
+                    proc.kill()
+        except Exception:
+            pass
+
+        try:
+            log_file = proc_info.get("log_file")
+            if log_file:
+                log_file.close()
+        except Exception:
+            pass
+
+        del active_processes[server_id]
+
+
+def run_npm_command(server_path: str, command: str, log_file_path: str, server_name: str = "my-server"):
+    args = shlex.split(command)
+    if not args:
+        raise ValueError("Komut boş olamaz.")
+    if args[0] != "npm":
+        raise ValueError("Sadece npm komutları destekleniyor.")
+
+    ensure_package_json_exists(server_path, server_name)
+
+    with open(log_file_path, "a", encoding="utf-8") as log_file:
+        log_file.write(f"\n[CMD] {command}\n")
+        log_file.flush()
+        subprocess.Popen(
+            args,
+            cwd=server_path,
+            stdout=log_file,
+            stderr=subprocess.STDOUT
+        )
+
+
+def auto_install_dependencies_if_needed(server_path: str, log_file, server_name: str = "my-server"):
+    package_json_path = ensure_package_json_exists(server_path, server_name)
+    node_modules_path = os.path.join(server_path, "node_modules")
+
+    if os.path.exists(package_json_path) and not os.path.exists(node_modules_path):
+        log_file.write("\n[Auto] package.json bulundu/oluşturuldu. npm install başlatılıyor...\n")
+        log_file.flush()
+
+        result = subprocess.run(
+            ["npm", "install"],
+            cwd=server_path,
+            stdout=log_file,
+            stderr=subprocess.STDOUT
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError("Otomatik npm install başarısız oldu.")
+
+
 def cleanup_dead_active_processes():
     removed = []
     for server_id, proc_info in list(active_processes.items()):
@@ -470,15 +523,23 @@ def get_or_create_session_id():
     return session["sid"]
 
 
-def touch_current_visit(data=None):
+def touch_current_visit(data=None, force=False):
+    now = time.time()
+    last_touch = float(session.get("last_presence_touch", 0) or 0)
+
+    if not force and (now - last_touch) < SESSION_PRESENCE_THROTTLE_SECONDS:
+        return get_online_visitor_count()
+
     if data is None:
         data = load_data()
 
     data = ensure_db_defaults(data)
     sid = get_or_create_session_id()
-    data["presence"][sid] = {"last_seen": time.time()}
+    data["presence"][sid] = {"last_seen": now}
     data = cleanup_presence(data)
     save_data(data)
+    session["last_presence_touch"] = now
+
     return len(data["presence"])
 
 
@@ -507,86 +568,7 @@ def get_site_stats():
     }
 
 
-# ==================== 4. ARKA PLAN SENKRONİZASYONU ====================
-
-def runtime_db_daemon():
-    while True:
-        try:
-            with DATA_LOCK:
-                data = load_data(force_disk=True)
-                changed = False
-
-                cleanup_dead_active_processes()
-
-                for server_id, server in data.get("servers", {}).items():
-                    server = ensure_server_defaults(server)
-
-                    if server_id in active_processes:
-                        proc_info = active_processes.get(server_id, {})
-                        proc = proc_info.get("process")
-                        alive = False
-                        try:
-                            alive = proc is not None and proc.poll() is None
-                        except Exception:
-                            alive = False
-
-                        if alive:
-                            if server.get("status") != "Çalışıyor":
-                                server["status"] = "Çalışıyor"
-                                data["servers"][server_id] = server
-                                changed = True
-                        else:
-                            try:
-                                log_file = proc_info.get("log_file")
-                                if log_file:
-                                    log_file.close()
-                            except Exception:
-                                pass
-                            active_processes.pop(server_id, None)
-                            if server.get("status") != "Durduruldu":
-                                server["status"] = "Durduruldu"
-                                data["servers"][server_id] = server
-                                changed = True
-                    else:
-                        if server.get("status") == "Çalışıyor":
-                            server_path = os.path.join(SERVERS_DIR, server_id)
-                            main_file = server.get("main_file", "index.js")
-                            target_file = os.path.join(server_path, main_file)
-                            log_file_path = os.path.join(server_path, "server_output.log")
-
-                            if os.path.exists(target_file):
-                                try:
-                                    log_file = open(log_file_path, "a", encoding="utf-8")
-                                    log_file.write("\n[SİSTEM] Process düştü, otomatik yeniden başlatılıyor.\n")
-                                    log_file.flush()
-                                    os.fsync(log_file.fileno())
-
-                                    process = subprocess.Popen(
-                                        ["node", main_file],
-                                        cwd=server_path,
-                                        stdin=subprocess.PIPE,
-                                        stdout=log_file,
-                                        stderr=subprocess.STDOUT
-                                    )
-                                    active_processes[server_id] = {
-                                        "process": process,
-                                        "log_file": log_file
-                                    }
-                                except Exception as e:
-                                    logging.error(f"[WATCHDOG] {server_id} başlatılamadı: {e}")
-
-                data = cleanup_presence(data)
-                if changed:
-                    save_data(data)
-                else:
-                    # Yine de canlılık için en azından presence temizliği kaydedilsin
-                    save_data(data)
-
-        except Exception as e:
-            logging.error(f"[AUTO-SYNC] Hata: {e}")
-
-        time.sleep(1)
-
+# ==================== 4. RENDER / CANLI TUTMA ====================
 
 def keep_alive_daemon():
     url = APP_BASE_URL + "/"
@@ -643,13 +625,10 @@ def resume_all_running_servers():
                     logging.error(f"[AUTO-RESUME] {server_id} başlatılamadı: {e}")
 
 
-# ==================== 5. THREADLER ====================
-
 threading.Thread(target=keep_alive_daemon, daemon=True).start()
-threading.Thread(target=runtime_db_daemon, daemon=True).start()
 
 
-# ==================== 6. REQUEST HOOK ====================
+# ==================== 5. REQUEST HOOK ====================
 
 @app.before_request
 def keep_presence_fresh():
@@ -657,6 +636,7 @@ def keep_presence_fresh():
         return
     if request.endpoint in {"site_heartbeat", "site_stats"}:
         return
+
     if request.endpoint in {
         "index",
         "login",
@@ -674,7 +654,7 @@ def keep_presence_fresh():
             pass
 
 
-# ==================== 7. ROUTES ====================
+# ==================== 6. ROUTES ====================
 
 @app.route("/")
 def index():
@@ -684,7 +664,7 @@ def index():
 
 @app.route("/api/site-heartbeat", methods=["POST"])
 def site_heartbeat():
-    touch_current_visit()
+    touch_current_visit(force=True)
     stats = get_site_stats()
     return jsonify({
         "status": "success",
@@ -839,11 +819,6 @@ def dashboard_menu():
             v["is_owner"] = normalize_email(v.get("owner")) == current_email
             user_servers[k] = v
 
-    for srv_id, srv_data in user_servers.items():
-        if srv_data.get("status") == "Çalışıyor" and srv_id not in active_processes:
-            srv_data["status"] = "Durduruldu"
-            data["servers"][srv_id] = srv_data
-
     save_data(data)
     return render_template("dashboardmenu.html", servers=user_servers)
 
@@ -955,6 +930,7 @@ def read_file(server_id):
         return jsonify({"status": "error", "message": "Geçersiz dosya yolu."}), 400
 
     safe_path = os.path.join(SERVERS_DIR, server_id, filename)
+
     if not os.path.exists(safe_path) or os.path.isdir(safe_path):
         return jsonify({"status": "error", "message": "Dosya bulunamadı."}), 404
 
@@ -1215,11 +1191,10 @@ def logout():
     return redirect(url_for("index"))
 
 
-# ==================== 8. UYGULAMA BAŞLANGICI ====================
+# ==================== 7. UYGULAMA BAŞLANGICI ====================
 
 if __name__ == "__main__":
     init_db()
     load_data(force_disk=True)
     resume_all_running_servers()
-    threading.Thread(target=runtime_db_daemon, daemon=True).start()
     app.run(host="0.0.0.0", port=5000, debug=False)
