@@ -1,3 +1,4 @@
+# app.py
 import os
 import json
 import logging
@@ -57,16 +58,35 @@ SMTP_APP_PASSWORD = (
 EMAIL_VERIFICATION_REQUIRED = True
 VERIFICATION_TOKEN_EXPIRY_SECONDS = 24 * 60 * 60
 
+# Site içi canlı ziyaretçi takibi
+ONLINE_SESSION_TTL_SECONDS = 60
+
 DATA_LOCK = threading.Lock()
 
 
 # ==================== 2. VERİTABANI VE YARDIMCI FONKSİYONLAR ====================
 
+def ensure_db_defaults(data):
+    if not isinstance(data, dict):
+        data = {}
+    if "settings" not in data or not isinstance(data.get("settings"), dict):
+        data["settings"] = {}
+    if "users" not in data or not isinstance(data.get("users"), dict):
+        data["users"] = {}
+    if "servers" not in data or not isinstance(data.get("servers"), dict):
+        data["servers"] = {}
+    if "logs" not in data or not isinstance(data.get("logs"), list):
+        data["logs"] = []
+    if "presence" not in data or not isinstance(data.get("presence"), dict):
+        data["presence"] = {}
+    return data
+
+
 def init_db():
     os.makedirs(DATA_DIR, exist_ok=True)
     os.makedirs(SERVERS_DIR, exist_ok=True)
     if not os.path.exists(DB_FILE):
-        default_structure = {"settings": {}, "users": {}, "servers": {}, "logs": []}
+        default_structure = {"settings": {}, "users": {}, "servers": {}, "logs": [], "presence": {}}
         with open(DB_FILE, 'w', encoding='utf-8') as f:
             json.dump(default_structure, f, indent=4, ensure_ascii=False)
 
@@ -76,14 +96,16 @@ def load_data():
     with DATA_LOCK:
         try:
             with open(DB_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+                return ensure_db_defaults(data)
         except json.JSONDecodeError:
-            return {"settings": {}, "users": {}, "servers": {}, "logs": []}
+            return {"settings": {}, "users": {}, "servers": {}, "logs": [], "presence": {}}
         except FileNotFoundError:
-            return {"settings": {}, "users": {}, "servers": {}, "logs": []}
+            return {"settings": {}, "users": {}, "servers": {}, "logs": [], "presence": {}}
 
 
 def save_data(data):
+    data = ensure_db_defaults(data)
     with DATA_LOCK:
         with open(DB_FILE, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
@@ -386,6 +408,98 @@ def send_verification_email(to_email: str, username: str, token: str):
         smtp.sendmail(SMTP_EMAIL, [to_email], msg.as_string())
 
 
+def cleanup_dead_active_processes():
+    removed = []
+    for server_id, proc_info in list(active_processes.items()):
+        proc = proc_info.get("process")
+        alive = False
+        try:
+            alive = proc is not None and proc.poll() is None
+        except Exception:
+            alive = False
+
+        if not alive:
+            try:
+                log_file = proc_info.get("log_file")
+                if log_file:
+                    log_file.close()
+            except Exception:
+                pass
+            active_processes.pop(server_id, None)
+            removed.append(server_id)
+    return removed
+
+
+def cleanup_presence(data):
+    data = ensure_db_defaults(data)
+    now = time.time()
+    cutoff = now - ONLINE_SESSION_TTL_SECONDS
+
+    stale_keys = []
+    for sid, info in data["presence"].items():
+        if not isinstance(info, dict):
+            stale_keys.append(sid)
+            continue
+        last_seen = float(info.get("last_seen", 0) or 0)
+        if last_seen < cutoff:
+            stale_keys.append(sid)
+
+    for sid in stale_keys:
+        data["presence"].pop(sid, None)
+
+    return data
+
+
+def get_or_create_session_id():
+    if "sid" not in session:
+        session["sid"] = str(uuid.uuid4())
+    return session["sid"]
+
+
+def touch_current_visit(data=None):
+    close_after = False
+    if data is None:
+        data = load_data()
+        close_after = True
+
+    data = ensure_db_defaults(data)
+    sid = get_or_create_session_id()
+    data["presence"][sid] = {
+        "last_seen": time.time()
+    }
+    cleanup_presence(data)
+    save_data(data)
+
+    if close_after:
+        return len(data["presence"])
+    return len(data["presence"])
+
+
+def get_online_visitor_count():
+    data = load_data()
+    data = cleanup_presence(data)
+    save_data(data)
+    return len(data.get("presence", {}))
+
+
+def get_active_server_count():
+    cleanup_dead_active_processes()
+    return len(active_processes)
+
+
+def get_registered_user_count():
+    data = load_data()
+    return len(data.get("users", {}))
+
+
+def get_site_stats():
+    return {
+        "active_servers": get_active_server_count(),
+        "registered_users": get_registered_user_count(),
+        "online_visitors": get_online_visitor_count()
+    }
+
+
 def sync_runtime_status_to_db():
     """
     Her saniye çalışır:
@@ -402,14 +516,31 @@ def sync_runtime_status_to_db():
                 server = ensure_server_defaults(server)
 
                 if server_id in active_processes:
-                    if server.get("status") != "Çalışıyor":
-                        server["status"] = "Çalışıyor"
-                        data["servers"][server_id] = server
-                        changed = True
-                else:
-                    # Process yoksa ama kayıt "Çalışıyor" ise burada sadece DB'yi bozmuyoruz.
-                    # Watchdog restart deneyecek.
-                    pass
+                    proc_info = active_processes.get(server_id, {})
+                    proc = proc_info.get("process")
+                    alive = False
+                    try:
+                        alive = proc is not None and proc.poll() is None
+                    except Exception:
+                        alive = False
+
+                    if alive:
+                        if server.get("status") != "Çalışıyor":
+                            server["status"] = "Çalışıyor"
+                            data["servers"][server_id] = server
+                            changed = True
+                    else:
+                        try:
+                            log_file = proc_info.get("log_file")
+                            if log_file:
+                                log_file.close()
+                        except Exception:
+                            pass
+                        active_processes.pop(server_id, None)
+                        if server.get("status") != "Durduruldu":
+                            server["status"] = "Durduruldu"
+                            data["servers"][server_id] = server
+                            changed = True
 
             save_data(data)
 
@@ -430,7 +561,17 @@ def server_watchdog_daemon():
             data = load_data()
             for server_id, server_data in data.get("servers", {}).items():
                 server_data = ensure_server_defaults(server_data)
-                if server_data.get("status") == "Çalışıyor" and server_id not in active_processes:
+                proc_info = active_processes.get(server_id)
+                proc_alive = False
+
+                if proc_info:
+                    try:
+                        proc = proc_info.get("process")
+                        proc_alive = proc is not None and proc.poll() is None
+                    except Exception:
+                        proc_alive = False
+
+                if not proc_alive and server_data.get("status") == "Çalışıyor":
                     server_path = os.path.join(SERVERS_DIR, server_id)
                     main_file = server_data.get("main_file", "index.js")
                     target_file = os.path.join(server_path, main_file)
@@ -529,7 +670,31 @@ threading.Thread(target=server_watchdog_daemon, daemon=True).start()
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    touch_current_visit()
+    stats = get_site_stats()
+    return render_template('index.html', **stats)
+
+
+@app.route('/api/site-heartbeat', methods=['POST'])
+def site_heartbeat():
+    count = touch_current_visit()
+    stats = get_site_stats()
+    return jsonify({
+        "status": "success",
+        "online_visitors": stats["online_visitors"],
+        "active_servers": stats["active_servers"],
+        "registered_users": stats["registered_users"],
+        "your_session_active": True
+    })
+
+
+@app.route('/api/site-stats', methods=['GET'])
+def site_stats():
+    stats = get_site_stats()
+    return jsonify({
+        "status": "success",
+        **stats
+    })
 
 
 @app.route('/register', methods=['GET', 'POST'])
